@@ -1,0 +1,891 @@
+CMS Geliştirme Fazları Dökümanı
+Proje Genel Bakış
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         PROJE ROADMAP                                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  FAZ 1        FAZ 2        FAZ 3        FAZ 4        FAZ 5        FAZ 6     │
+│  ──────       ──────       ──────       ──────       ──────       ──────    │
+│  Temel        İçerik       Page         SEO &        Gelişmiş     Final     │
+│  Altyapı      Yönetimi     Builder      Analytics    Özellikler   & Deploy  │
+│                                                                              │
+│  2 hafta      2 hafta      2 hafta      1.5 hafta    2 hafta      1 hafta   │
+│                                                                              │
+│  ════════════════════════════════════════════════════════════════════════   │
+│                        TOPLAM: ~10-11 HAFTA                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+FAZ 1: Temel Altyapı (2 Hafta)
+1.1 Hafta 1: Proje Kurulumu & Core Yapılandırma
+Gün 1-2: Proje Başlatma
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ Laravel 11 kurulumu
+□ Git repository oluşturma
+□ Dizin yapısının oluşturulması (script ile)
+□ Composer paketlerinin kurulumu
+□ Filament 3 kurulumu ve temel yapılandırma
+□ .env dosyası yapılandırması
+□ Veritabanı bağlantısı test
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Çalışan Laravel projesi
+- Filament admin paneline erişim
+- Temel dizin yapısı hazır
+Gün 3-4: Veritabanı Tasarımı & Migration'lar
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ Core tablolar için migration yazımı:
+  - languages
+  - users (güncelleme)
+  - settings_groups
+  - settings
+  - storage_profiles
+  - media_folders
+  - media
+  - media_conversions
+
+□ Migration'ları çalıştırma ve test
+□ Temel Eloquent Model'leri oluşturma
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Veritabanı şeması hazır (core)
+- Temel modeller çalışır durumda
+Gün 5: Çoklu Dil Sistemi
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ Language modeli ve migration
+□ HasTranslations trait oluşturma
+□ SetLocale middleware
+□ LocaleManager service
+□ LanguageSeeder (TR, EN varsayılan)
+□ Filament'te dil seçici ekleme
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Çoklu dil altyapısı çalışır
+- Admin panelde dil seçimi yapılabilir
+- JSON tabanlı çeviri sistemi aktif
+1.2 Hafta 2: Kullanıcı & Ayarlar Sistemi
+Gün 1-2: Kullanıcı & Yetki Yönetimi
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ Spatie Permission kurulumu ve yapılandırma
+□ Rol ve izin tanımlamaları:
+  - Super Admin
+  - Admin
+  - Editor
+  - Author
+  - Contributor
+
+□ UserResource (Filament)
+□ RoleResource (Filament)
+□ PermissionResource (Filament)
+□ RolePermissionSeeder
+□ AdminUserSeeder
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Kullanıcı yönetimi çalışır
+- Rol bazlı yetkilendirme aktif
+- İlk admin kullanıcı oluşturulmuş
+Gün 3-4: Site Ayarları (Key-Value)
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ SettingsGroup modeli
+□ Setting modeli
+□ SettingsService oluşturma
+□ SettingsCacheService
+□ Filament Settings sayfaları:
+  - GeneralSettings
+  - ContactSettings
+  - SocialSettings
+  - MailSettings
+  - AppearanceSettings
+
+□ SettingsSeeder (varsayılan ayarlar)
+□ settings() helper fonksiyonu
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Admin'den site ayarları yönetilebilir
+- Cache mekanizması çalışır
+- Frontend'de ayarlar kullanılabilir
+Gün 5: Activity Log & Temel Cache
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ Spatie Activity Log kurulumu
+□ ActivityLogResource (Filament)
+□ Model Observer'lar için temel yapı
+□ Redis cache yapılandırması
+□ Cache helper'lar
+□ CacheManager Filament sayfası (basit)
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Tüm admin işlemleri loglanır
+- Cache mekanizması aktif
+- Admin'den cache temizlenebilir
+
+FAZ 2: İçerik Yönetimi (2 Hafta)
+2.1 Hafta 3: Media Library
+Gün 1-2: Media Upload & Storage
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ StorageProfile modeli ve yönetimi
+□ MediaFolder modeli (klasör yapısı)
+□ Media modeli
+□ MediaConversion modeli
+□ Storage driver'ları:
+  - LocalStorage
+  - S3Storage (temel)
+
+□ MediaUploader service
+□ Dosya validasyonu (mime, size)
+□ UUID tabanlı isimlendirme
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Dosya yükleme çalışır
+- Klasör yapısı yönetilebilir
+- Farklı storage'lara yükleme yapılabilir
+Gün 3-4: Image Processing & WebP
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ Intervention Image kurulumu
+□ ImageProcessor service
+□ WebPConverter service
+□ Otomatik conversion'lar:
+  - thumb (150x150)
+  - medium (600x400)
+  - large (1200x800)
+  - webp versiyonları
+
+□ ProcessMediaConversions Job (Queue)
+□ Dominant color extraction
+□ EXIF data okuma
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Resimler otomatik optimize edilir
+- WebP versiyonları oluşur
+- Thumbnail'lar hazır
+Gün 5: Media Library UI (Filament)
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ MediaResource (Filament)
+□ MediaLibrary custom page
+□ Grid/List görünüm
+□ Klasör navigasyonu
+□ Bulk upload
+□ Arama ve filtreleme
+□ MediaPicker form component
+□ Picture blade component (frontend)
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Tam fonksiyonlu media library
+- Diğer modüllerde kullanılabilir picker
+- Frontend'de responsive resimler
+2.2 Hafta 4: Sayfa & Blog Yönetimi
+Gün 1-2: Sayfa Yönetimi (Basit)
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ Page modeli ve migration
+□ PageStatus enum
+□ PageService
+□ PageRepository
+□ PageResource (Filament) - Basit versiyon:
+  - Başlık (çoklu dil)
+  - Slug (auto-generate)
+  - İçerik (rich editor)
+  - Durum (draft/published)
+  - Öne çıkan görsel
+  - Template seçimi
+
+□ PageObserver (cache invalidation)
+□ Frontend PageController (basit)
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Basit sayfa CRUD çalışır
+- Sayfalar frontend'de görüntülenir
+- Çoklu dil desteği aktif
+Gün 3-4: Blog Sistemi
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ Post modeli ve migration
+□ Category modeli (hierarchical)
+□ Tag modeli
+□ Pivot tablolar (post_category, post_tag)
+□ PostService, CategoryService
+□ PostResource (Filament)
+□ CategoryResource (Filament)
+□ TagResource (Filament)
+□ Frontend blog routes ve controller'lar
+□ Blog listeleme ve detay sayfaları
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Blog CRUD çalışır
+- Kategori ve etiket yönetimi
+- Frontend blog sayfaları
+Gün 5: Menü Sistemi
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ Menu modeli
+□ MenuItem modeli (nested)
+□ MenuLocation modeli
+□ MenuService
+□ MenuBuilder service
+□ MenuResource (Filament)
+□ Sürükle-bırak menü builder (basit)
+□ Menu blade component
+□ MenuLocationSeeder
+□ Frontend'de menü render
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Menü CRUD çalışır
+- Drag-drop sıralama
+- Frontend'de dinamik menüler
+
+FAZ 3: Page Builder (2 Hafta)
+3.1 Hafta 5: Section Sistemi Altyapısı
+Gün 1-2: Section Templates & Registry
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ SectionTemplate modeli ve migration
+□ sections.php config dosyası yapılandırması
+□ SectionRegistry service
+□ Section field types tanımlamaları:
+  - text
+  - textarea
+  - richtext
+  - file (media picker)
+  - select
+  - checkbox
+  - repeater
+  - iconpicker
+  - colorpicker
+
+□ SectionTemplateSeeder (10-15 temel section)
+□ SectionTemplateResource (Filament)
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Section template sistemi hazır
+- Temel section'lar tanımlı
+- Admin'den section template yönetimi
+Gün 3-4: PageSection & Renderer
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ PageSection modeli ve migration
+□ PageSection - Page ilişkisi
+□ SectionRenderer service
+□ Section data handler sistemi:
+  - AbstractHandler
+  - DynamicDataHandler
+  - LatestPostsHandler (örnek)
+
+□ FieldResolver service (çoklu dil field'ları çözme)
+□ Section blade view'ları (5-10 temel)
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Section'lar sayfalara eklenebilir
+- Section'lar frontend'de render edilir
+- Dinamik data handler'lar çalışır
+Gün 5: Section Blade Templates
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ Temel section blade dosyaları:
+  - _hero-banner-digital
+  - _services
+  - _testimonials
+  - _faq
+  - _cta-banner
+  - _statistics
+  - _contact-form
+  - _latest-posts
+  - _gallery
+  - _text-image
+
+□ Section CSS/JS (gerekirse)
+□ Section preview images
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- 10+ kullanılabilir section template
+- Frontend'de düzgün görüntüleme
+3.2 Hafta 6: Page Builder UI
+Gün 1-2: Drag & Drop UI (Sol Panel - Section Palette)
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ SectionsPalette Livewire component
+□ Section kartları tasarımı:
+  - Preview image
+  - Section adı
+  - Kategori
+  - Açıklama
+
+□ Kategori filtreleme
+□ Arama fonksiyonu
+□ Drag başlatma işlevi
+□ Alpine.js / SortableJS entegrasyonu
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Section palette görünür
+- Kategorilere göre filtreleme
+- Drag işlevi başlatılabilir
+Gün 3-4: Page Structure Panel (Sağ Panel)
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ PageStructure Livewire component
+□ Drop zone implementasyonu
+□ Section item kartları:
+  - Sıra numarası
+  - Section adı
+  - Aktif/Pasif toggle
+  - Edit butonu
+  - Copy butonu
+  - Delete butonu
+  - Drag handle
+
+□ Sıralama (drag-drop reorder)
+□ Section kopyalama
+□ Section silme
+□ Toplu kaydetme
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Section'lar sürüklenip bırakılabilir
+- Sıralama değiştirilebilir
+- Kopyalama ve silme çalışır
+Gün 5: Section Editor Modal
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ SectionEditor Livewire component
+□ Dinamik form oluşturma (field schema'dan)
+□ Field type component'leri:
+  - TranslatableInput
+  - TranslatableTextarea
+  - MediaPicker
+  - Repeater
+  - IconPicker
+  - vs.
+
+□ Dil seçici (tab veya dropdown)
+□ Validation
+□ Kaydetme işlevi
+□ Real-time preview (opsiyonel)
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Section içerikleri düzenlenebilir
+- Çoklu dil destekli form
+- Repeater alanlar çalışır
+
+FAZ 4: SEO & Analytics (1.5 Hafta)
+4.1 Hafta 7: SEO Manager
+Gün 1-2: SEO Altyapısı
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ SEO tabloları migration:
+  - seo_settings
+  - seo_templates
+  - seo_meta (polymorphic)
+  - seo_redirects
+
+□ SEO modelleri
+□ SeoService
+□ HasSeo trait (Page, Post için)
+□ MetaTagRenderer service
+□ Global SEO ayarları Filament sayfası
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- SEO veritabanı yapısı hazır
+- Her içerik için SEO meta desteği
+Gün 3-4: SEO Editor & Schema
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ SEO Editor component (Page/Post edit içinde):
+  - Focus keyword
+  - SEO title
+  - Meta description
+  - Robots ayarları
+  - Canonical URL
+  - OG tags
+  - Twitter cards
+
+□ SchemaGenerator service
+□ Desteklenen schema tipleri:
+  - WebPage
+  - Article
+  - BlogPosting
+  - FAQPage
+  - Organization
+  - LocalBusiness
+
+□ Schema preview/validation
+□ _seo-meta.blade.php partial
+□ _schema.blade.php partial
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Her içerik için SEO düzenlenebilir
+- Otomatik schema üretimi
+- Frontend'de meta taglar render edilir
+Gün 5: SEO Analysis & Redirects
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ SeoAnalyzer service
+□ Analiz kuralları:
+  - Focus keyword kontrolü
+  - Title uzunluğu
+  - Description uzunluğu
+  - Heading yapısı
+  - Image alt tags
+  - Internal/external links
+
+□ SEO skor hesaplama
+□ RedirectResource (Filament)
+□ HandleRedirects middleware
+□ 404 tracking (SeoBrokenLink)
+□ SitemapGenerator service
+□ robots.txt yönetimi
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- İçerik SEO skoru görünür
+- Redirect yönetimi
+- Otomatik sitemap
+- 404 takibi
+4.2 Hafta 8 (3 gün): Analytics & Tracking
+Gün 1-2: Tracking Integrations
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ TrackingIntegration modeli
+□ VerificationMetaTag modeli
+□ CustomScript modeli
+□ TrackingService
+□ ScriptRenderer service
+□ Filament sayfaları:
+  - TrackingIntegrations
+  - VerificationTags
+  - CustomScripts
+
+□ Desteklenen platformlar:
+  - Google Analytics 4
+  - Google Tag Manager
+  - Google Search Console
+  - Yandex Metrica
+  - Facebook Pixel
+  - Bing Webmaster
+
+□ Frontend entegrasyonu:
+  - _tracking-head.blade.php
+  - _tracking-body-start.blade.php
+  - _tracking-body-end.blade.php
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Admin'den analytics kodları yönetimi
+- Verification tag'ler
+- Custom script ekleme
+Gün 3: reCAPTCHA
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ RecaptchaSetting modeli
+□ RecaptchaService
+□ RecaptchaValidator (validation rule)
+□ RecaptchaSettings Filament sayfası
+□ v2 Checkbox desteği
+□ v2 Invisible desteği
+□ v3 Score-based desteği
+□ Recaptcha blade component
+□ Form entegrasyonu
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Admin'den reCAPTCHA ayarları
+- Formlarda spam koruması
+
+FAZ 5: Gelişmiş Özellikler (2 Hafta)
+5.1 Hafta 8 (kalan) + Hafta 9: Form & İletişim
+Gün 1-2: Form Builder
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ Form modeli ve migration
+□ FormSubmission modeli
+□ FormService
+□ FormValidatorService
+□ FormResource (Filament)
+□ Form field types:
+  - text, email, phone
+  - textarea
+  - select, radio, checkbox
+  - file upload
+  - hidden
+  - honeypot
+
+□ Form ayarları:
+  - Success message
+  - Redirect URL
+  - reCAPTCHA toggle
+  - Email notification toggle
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Dinamik form oluşturma
+- Form ayarları yönetimi
+Gün 3-4: Form Submissions & Notifications
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ FormSubmissionService
+□ FormNotificationService
+□ Form Submissions listesi (Filament)
+□ Submission detay görüntüleme
+□ Export (CSV/Excel)
+□ Spam filtreleme
+□ Email notification template
+□ SendFormNotification job
+□ Frontend form component
+□ AJAX form submit
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Form gönderileri kaydedilir
+- Email bildirimleri gider
+- Export yapılabilir
+Gün 5: Comment System
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ Comment modeli (polymorphic)
+□ CommentStatus enum
+□ CommentService
+□ CommentResource (Filament)
+□ Moderasyon paneli:
+  - Onaylama
+  - Spam işaretleme
+  - Silme
+  - Toplu işlemler
+
+□ Nested comments desteği
+□ Frontend comment display
+□ Comment form
+□ Email bildirimleri
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Yorum sistemi çalışır
+- Moderasyon paneli
+- Nested yorumlar
+5.2 Hafta 9 devam + Hafta 10: Diğer Özellikler
+Gün 1-2: Newsletter & Popup
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ Subscriber modeli
+□ SubscriberList modeli
+□ SubscriberService
+□ SubscriberResource (Filament)
+□ Double opt-in desteği
+□ Unsubscribe yönetimi
+□ Import/Export
+
+□ Popup modeli
+□ PopupService
+□ PopupResource (Filament)
+□ Trigger types:
+  - Time delay
+  - Scroll percentage
+  - Exit intent
+
+□ Display rules:
+  - Once per session
+  - Once per X days
+  - Page specific
+
+□ Frontend popup component
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Newsletter abonelik sistemi
+- Popup yönetimi ve görüntüleme
+Gün 3-4: Backup & System
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ Spatie Backup yapılandırması
+□ Backup modeli (log için)
+□ BackupSchedule modeli
+□ BackupService
+□ BackupManager Filament sayfası:
+  - Manuel backup başlatma
+  - Backup listesi
+  - İndirme
+  - Silme
+
+□ BackupSchedules Filament sayfası
+□ Scheduled backup (cron)
+□ Backup rotation
+
+□ SystemInfo Filament sayfası:
+  - PHP version
+  - Laravel version
+  - Disk usage
+  - Database size
+  - Cache status
+
+□ CacheManager:
+  - Selective cache clear
+  - Cache warmup
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Otomatik/manuel backup
+- Sistem bilgileri görünür
+- Cache yönetimi
+Gün 5: Layout Components (Header/Footer)
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ LayoutComponent modeli
+□ Header template'leri (2-3 varyant)
+□ Footer template'leri (2-3 varyant)
+□ LayoutResolver service
+□ Layout yönetimi Filament sayfası
+□ Header içerik alanları:
+  - Logo
+  - Menu location
+  - CTA button
+  - Search toggle
+  - Language switcher
+
+□ Footer içerik alanları:
+  - Logo & about
+  - Menu locations
+  - Contact info
+  - Social links
+  - Copyright
+
+□ Frontend layout entegrasyonu
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Admin'den header/footer seçimi
+- Farklı layout varyantları
+
+FAZ 6: Final & Deploy (1 Hafta)
+6.1 Hafta 10 devam + Hafta 11: Polish & Deploy
+Gün 1-2: Testing & Bug Fixes
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ Feature testleri yazımı:
+  - Page CRUD
+  - Post CRUD
+  - Media upload
+  - Form submission
+  - SEO functionality
+
+□ Unit testleri:
+  - SectionRenderer
+  - TranslationService
+  - SeoAnalyzer
+
+□ Manuel test senaryoları
+□ Bug fix'ler
+□ Edge case'lerin kontrolü
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Test coverage
+- Bilinen bug'lar fix'lenmiş
+Gün 3: Performance Optimization
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ Database indexleri kontrolü
+□ N+1 query sorunları çözümü
+□ Cache stratejisi review
+□ Asset optimization (CSS/JS minify)
+□ Image lazy loading kontrolü
+□ Eager loading optimizasyonu
+□ Query caching
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Optimize edilmiş sorgular
+- Hızlı sayfa yüklemeleri
+Gün 4: Security Review
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ CSRF koruması kontrolü
+□ XSS koruması kontrolü
+□ SQL injection kontrolü
+□ File upload güvenliği
+□ Rate limiting
+□ Sensitive data encryption
+□ Permission kontrolü review
+□ Security headers
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Güvenlik açıkları kapatılmış
+- Best practice'ler uygulanmış
+Gün 5: Documentation & Deploy
+YAPILACAKLAR:
+─────────────────────────────────────────────────────────────────
+□ README.md güncelleme
+□ Kurulum dokümantasyonu
+□ API dokümantasyonu (varsa)
+□ Admin kullanım kılavuzu
+□ Production .env örneği
+□ Deployment checklist:
+  - Server gereksinimleri
+  - PHP extensions
+  - Queue worker setup
+  - Cron jobs
+  - SSL sertifikası
+  - Backup yapılandırması
+
+□ İlk deployment
+□ Smoke testing (production)
+─────────────────────────────────────────────────────────────────
+
+ÇIKTI:
+- Dokümantasyon hazır
+- Production'da çalışan sistem
+
+Faz Bağımlılıkları
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         FAZ BAĞIMLILIKLARI                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+FAZ 1 (Temel Altyapı)
+    │
+    ├──► FAZ 2 (İçerik Yönetimi)
+    │        │
+    │        ├──► FAZ 3 (Page Builder)
+    │        │        │
+    │        │        └──► FAZ 4 (SEO & Analytics)
+    │        │                 │
+    │        │                 └──► FAZ 5 (Gelişmiş Özellikler)
+    │        │                          │
+    │        │                          └──► FAZ 6 (Final & Deploy)
+    │        │
+    │        └──► FAZ 4 (kısmen bağımsız çalışabilir)
+    │
+    └──► FAZ 4 (reCAPTCHA bağımsız)
+
+
+PARALEL ÇALIŞABİLECEKLER:
+─────────────────────────────────────────────────────────────────
+- FAZ 2'deki Blog ve Menu sistemleri paralel geliştirilebilir
+- FAZ 4'teki SEO ve Analytics paralel geliştirilebilir
+- FAZ 5'teki Form, Newsletter, Popup paralel geliştirilebilir
+
+Öncelik Sıralaması (MVP için)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    MVP (Minimum Viable Product)                              │
+│                         Öncelik Sıralaması                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+MUST HAVE (Zorunlu):
+═══════════════════════════════════════════════════════════════════════════════
+✓ FAZ 1: Tamamı
+✓ FAZ 2: Media Library, Sayfa Yönetimi, Menü Sistemi
+✓ FAZ 3: Page Builder (temel)
+✓ FAZ 4: SEO Meta (temel), reCAPTCHA
+✓ FAZ 6: Test & Deploy
+
+SHOULD HAVE (Olmalı):
+═══════════════════════════════════════════════════════════════════════════════
+○ FAZ 2: Blog Sistemi
+○ FAZ 4: Schema Generator, Redirects, Analytics
+○ FAZ 5: Form Builder, Contact Form
+
+COULD HAVE (Olsa İyi):
+═══════════════════════════════════════════════════════════════════════════════
+○ FAZ 5: Comment System, Newsletter, Popup
+○ FAZ 5: Backup System, Layout Components
+○ FAZ 4: SEO Analysis (detaylı)
+
+WON'T HAVE (Bu Versiyon İçin Değil):
+═══════════════════════════════════════════════════════════════════════════════
+✗ Multi-site support
+✗ E-commerce entegrasyonu
+✗ Advanced A/B testing
+✗ AI content suggestions
+
+
+MVP TIMELINE (Sadece Zorunlu):
+═══════════════════════════════════════════════════════════════════════════════
+FAZ 1: 2 hafta
+FAZ 2: 1.5 hafta (blog hariç)
+FAZ 3: 1.5 hafta (temel)
+FAZ 4: 0.5 hafta (temel SEO + reCAPTCHA)
+FAZ 6: 0.5 hafta
+─────────────────────────────────────────────────────────────────
+TOPLAM MVP: ~6 hafta
+
+Checkpoint'ler
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         CHECKPOINT'LER                                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+CHECKPOINT 1 (Hafta 2 Sonu):
+─────────────────────────────────────────────────────────────────
+□ Admin panel erişilebilir
+□ Kullanıcı girişi yapılabilir
+□ Site ayarları düzenlenebilir
+□ Çoklu dil değiştirilebilir
+□ Activity log çalışıyor
+
+
+CHECKPOINT 2 (Hafta 4 Sonu):
+─────────────────────────────────────────────────────────────────
+□ Media yüklenebilir ve görüntülenebilir
+□ Basit sayfa oluşturulabilir
+□ Blog yazısı oluşturulabilir
+□ Menü oluşturulabilir
+□ Frontend'de içerik görüntülenir
+
+
+CHECKPOINT 3 (Hafta 6 Sonu):
+─────────────────────────────────────────────────────────────────
+□ Page builder ile sayfa oluşturulabilir
+□ Section'lar sürükle-bırak ile eklenebilir
+□ Section içerikleri düzenlenebilir
+□ Sayfa frontend'de section'larla render edilir
+
+
+CHECKPOINT 4 (Hafta 8 Sonu):
+─────────────────────────────────────────────────────────────────
+□ SEO meta bilgileri düzenlenebilir
+□ Schema otomatik üretiliyor
+□ Analytics kodları eklenebilir
+□ reCAPTCHA çalışıyor
+□ Sitemap oluşturuluyor
+
+
+CHECKPOINT 5 (Hafta 10 Sonu):
+─────────────────────────────────────────────────────────────────
+□ Form builder çalışıyor
+□ Yorum sistemi aktif
+□ Newsletter abonelik çalışıyor
+□ Backup alınabiliyor
+□ Tüm temel özellikler test edildi
+
+
+CHECKPOINT 6 (Hafta 11 Sonu - FINAL):
+─────────────────────────────────────────────────────────────────
+□ Production ortamında çalışıyor
+□ SSL aktif
+□ Performans kabul edilebilir
+□ Güvenlik kontrolleri yapıldı
+□ Dokümantasyon hazır
+
+Bu döküman, projenin başından sonuna kadar sistematik bir şekilde ilerlemeni sağlayacak bir yol haritası sunuyor. Her fazın sonunda checkpoint'leri kontrol ederek ilerlemeyi doğrulayabilirsin.
+Herhangi bir fazın daha detaylı açıklanmasını ister misin?
