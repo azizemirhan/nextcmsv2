@@ -79,16 +79,8 @@ class PageSection extends Model
 
     public function render(): string
     {
-        $template = $this->template;
-        
-        if (!$template || !$template->view_path) {
-            return '';
-        }
-
-        return view($template->view_path, [
-            'section' => $this,
-            'content' => $this->content,
-        ])->render();
+        $renderer = app(\App\PageBuilder\SectionRenderer::class);
+        return $renderer->render($this);
     }
 
     public function isVisible(): bool

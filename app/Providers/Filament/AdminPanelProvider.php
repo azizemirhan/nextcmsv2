@@ -32,6 +32,10 @@ class AdminPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Admin/Pages'), for: 'App\\Filament\\Admin\\Pages')
             ->pages([
                 Pages\Dashboard::class,
+                \App\Filament\Pages\Settings\GeneralSettings::class,
+                \App\Filament\Pages\Settings\ContactSettings::class,
+                \App\Filament\Pages\Settings\SocialSettings::class,
+                \App\Filament\Pages\Settings\MailSettings::class,
             ])
             ->login()
             ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\\Filament\\Admin\\Widgets')
