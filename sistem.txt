@@ -1,0 +1,3603 @@
+Laravel 11 + Blade CMS Mimari Tasarımı
+1. Genel Mimari Görünüm
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              CMS MİMARİSİ                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐                   │
+│  │   Frontend   │    │    Admin     │    │     API      │                   │
+│  │   (Blade)    │    │   (Blade)    │    │  (Opsiyonel) │                   │
+│  └──────┬───────┘    └──────┬───────┘    └──────┬───────┘                   │
+│         │                   │                   │                            │
+│         └───────────────────┼───────────────────┘                            │
+│                             │                                                │
+│                    ┌────────▼────────┐                                       │
+│                    │  Service Layer  │                                       │
+│                    └────────┬────────┘                                       │
+│                             │                                                │
+│         ┌───────────────────┼───────────────────┐                            │
+│         │                   │                   │                            │
+│  ┌──────▼──────┐    ┌───────▼───────┐   ┌──────▼──────┐                     │
+│  │    Page     │    │    Media      │   │   Menu      │                     │
+│  │   Service   │    │   Service     │   │  Service    │                     │
+│  └──────┬──────┘    └───────┬───────┘   └──────┬──────┘                     │
+│         │                   │                   │                            │
+│         └───────────────────┼───────────────────┘                            │
+│                             │                                                │
+│                    ┌────────▼────────┐                                       │
+│                    │  Repository     │                                       │
+│                    │    Layer        │                                       │
+│                    └────────┬────────┘                                       │
+│                             │                                                │
+│                    ┌────────▼────────┐                                       │
+│                    │    Models       │                                       │
+│                    │  (Eloquent)     │                                       │
+│                    └────────┬────────┘                                       │
+│                             │                                                │
+│                    ┌────────▼────────┐                                       │
+│                    │    Database     │                                       │
+│                    │   (MySQL/PG)    │                                       │
+│                    └─────────────────┘                                       │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+2. Veritabanı Şeması
+2.1 Core Tables (Çekirdek Tablolar)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           DATABASE SCHEMA                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────┐
+│         pages           │
+├─────────────────────────┤
+│ id (PK)                 │
+│ uuid                    │
+│ slug (unique)           │
+│ template                │──────► 'default', 'landing', 'blog'
+│ status                  │──────► 'draft', 'published', 'scheduled'
+│ title (JSON)            │──────► {"tr": "...", "en": "..."}
+│ seo_title (JSON)        │
+│ meta_description (JSON) │
+│ og_image                │
+│ schema_json (JSON)      │
+│ published_at            │
+│ created_by (FK→users)   │
+│ updated_by (FK→users)   │
+│ deleted_at              │
+│ timestamps              │
+└───────────┬─────────────┘
+            │
+            │ 1:N
+            ▼
+┌─────────────────────────┐
+│     page_sections       │
+├─────────────────────────┤
+│ id (PK)                 │
+│ page_id (FK)            │
+│ section_key             │──────► 'hero-banner', 'pricing-packages'
+│ content (JSON)          │──────► Tüm section verileri
+│ order                   │
+│ is_active               │
+│ visibility_rules (JSON) │──────► {"devices": ["desktop"], "schedule": {...}}
+│ timestamps              │
+└─────────────────────────┘
+
+┌─────────────────────────┐
+│    section_templates    │
+├─────────────────────────┤
+│ id (PK)                 │
+│ key (unique)            │──────► 'hero-banner-digital'
+│ name (JSON)             │
+│ category                │──────► 'hero', 'content', 'cta'
+│ view_path               │──────► 'frontend.sections._herobanner'
+│ fields_schema (JSON)    │──────► Alan tanımları
+│ data_handler            │──────► Handler class path
+│ preview_image           │
+│ is_active               │
+│ timestamps              │
+└─────────────────────────┘
+2.2 Media System (Medya Sistemi)
+┌─────────────────────────┐       ┌─────────────────────────┐
+│    storage_profiles     │       │      media_folders      │
+├─────────────────────────┤       ├─────────────────────────┤
+│ id (PK)                 │       │ id (PK)                 │
+│ name                    │       │ parent_id (FK→self)     │
+│ driver                  │───►   │ name                    │
+│   'local'               │       │ slug                    │
+│   's3'                  │       │ path                    │
+│   'cloudflare_r2'       │       │ timestamps              │
+│   'bunny_cdn'           │       └───────────┬─────────────┘
+│ config (JSON)           │                   │
+│ is_default              │                   │ 1:N
+│ timestamps              │                   ▼
+└───────────┬─────────────┘       ┌─────────────────────────┐
+            │                     │         media           │
+            │ 1:N                 ├─────────────────────────┤
+            └────────────────────►│ id (PK)                 │
+                                  │ uuid                    │
+                                  │ storage_profile_id (FK) │
+                                  │ folder_id (FK)          │
+                                  │ filename                │
+                                  │ original_filename       │
+                                  │ path                    │
+                                  │ disk                    │
+                                  │ extension               │
+                                  │ mime_type               │
+                                  │ type                    │──► 'image','video','document'
+                                  │ size_bytes              │
+                                  │ width                   │
+                                  │ height                  │
+                                  │ checksum_sha256         │
+                                  │ title (JSON)            │
+                                  │ alt (JSON)              │
+                                  │ caption (JSON)          │
+                                  │ variants (JSON)         │──► {"thumb": "...", "medium": "..."}
+                                  │ dominant_color          │
+                                  │ is_webp_converted       │
+                                  │ timestamps              │
+                                  │ deleted_at              │
+                                  └─────────────────────────┘
+
+┌─────────────────────────┐
+│    media_conversions    │
+├─────────────────────────┤
+│ id (PK)                 │
+│ media_id (FK)           │
+│ conversion_name         │──────► 'thumb', 'medium', 'large', 'webp'
+│ path                    │
+│ disk                    │
+│ width                   │
+│ height                  │
+│ size_bytes              │
+│ format                  │──────► 'webp', 'jpg', 'png'
+│ timestamps              │
+└─────────────────────────┘
+2.3 Menu System (Menü Sistemi)
+┌─────────────────────────┐
+│         menus           │
+├─────────────────────────┤
+│ id (PK)                 │
+│ name (JSON)             │
+│ slug (unique)           │
+│ location                │──────► 'header', 'footer', 'sidebar'
+│ max_depth               │──────► Maksimum derinlik (2-3)
+│ is_active               │
+│ timestamps              │
+└───────────┬─────────────┘
+            │
+            │ 1:N
+            ▼
+┌─────────────────────────┐
+│       menu_items        │
+├─────────────────────────┤
+│ id (PK)                 │
+│ menu_id (FK)            │
+│ parent_id (FK→self)     │
+│ title (JSON)            │
+│ type                    │──────► 'page', 'url', 'route', 'placeholder'
+│ linkable_type           │──────► Polymorphic (Page, Post, etc.)
+│ linkable_id             │
+│ url                     │──────► Manuel URL için
+│ route_name              │──────► Laravel route name
+│ route_params (JSON)     │
+│ target                  │──────► '_self', '_blank'
+│ icon                    │
+│ css_class               │
+│ is_mega_menu            │
+│ mega_menu_config (JSON) │
+│ order                   │
+│ is_active               │
+│ timestamps              │
+└─────────────────────────┘
+
+┌─────────────────────────┐
+│     theme_locations     │
+├─────────────────────────┤
+│ id (PK)                 │
+│ key                     │──────► 'primary_menu', 'footer_menu'
+│ name (JSON)             │
+│ menu_id (FK→menus)      │──────► Atanmış menü
+│ timestamps              │
+└─────────────────────────┘
+2.4 Layout System (Header/Footer)
+┌─────────────────────────┐
+│    layout_components    │
+├─────────────────────────┤
+│ id (PK)                 │
+│ type                    │──────► 'header', 'footer'
+│ name                    │
+│ slug (unique)           │
+│ template                │──────► 'header-default', 'footer-v2'
+│ content (JSON)          │──────► Tüm yapılandırma verileri
+│ is_default              │
+│ is_active               │
+│ timestamps              │
+└─────────────────────────┘
+
+┌─────────────────────────┐
+│    global_settings      │
+├─────────────────────────┤
+│ id (PK)                 │
+│ group                   │──────► 'general', 'seo', 'social', 'contact'
+│ key                     │
+│ value (JSON)            │
+│ type                    │──────► 'text', 'image', 'array', 'boolean'
+│ is_translatable         │
+│ timestamps              │
+└─────────────────────────┘
+2.5 Localization (Çoklu Dil)
+┌─────────────────────────┐
+│       languages         │
+├─────────────────────────┤
+│ id (PK)                 │
+│ code                    │──────► 'tr', 'en', 'de'
+│ name                    │──────► 'Türkçe', 'English'
+│ native_name             │
+│ flag                    │
+│ direction               │──────► 'ltr', 'rtl'
+│ is_default              │
+│ is_active               │
+│ order                   │
+│ timestamps              │
+└─────────────────────────┘
+
+3. Dizin Yapısı
+app/
+├── Console/
+│   └── Commands/
+│       ├── MediaCleanup.php
+│       ├── GenerateSitemap.php
+│       └── CacheWarmup.php
+│
+├── Contracts/                          # Interface tanımları
+│   ├── MediaStorageInterface.php
+│   ├── PageRendererInterface.php
+│   └── SectionHandlerInterface.php
+│
+├── DTOs/                               # Data Transfer Objects
+│   ├── PageDTO.php
+│   ├── SectionDTO.php
+│   └── MediaDTO.php
+│
+├── Enums/
+│   ├── PageStatus.php
+│   ├── MediaType.php
+│   └── MenuItemType.php
+│
+├── Events/
+│   ├── PagePublished.php
+│   ├── MediaUploaded.php
+│   └── SectionUpdated.php
+│
+├── Exceptions/
+│   ├── PageNotFoundException.php
+│   ├── SectionRenderException.php
+│   └── MediaProcessingException.php
+│
+├── Http/
+│   ├── Controllers/
+│   │   ├── Admin/
+│   │   │   ├── PageController.php
+│   │   │   ├── SectionController.php
+│   │   │   ├── MediaController.php
+│   │   │   ├── MenuController.php
+│   │   │   └── SettingsController.php
+│   │   │
+│   │   └── Frontend/
+│   │       ├── PageController.php
+│   │       └── HomeController.php
+│   │
+│   ├── Middleware/
+│   │   ├── SetLocale.php
+│   │   └── ResolveCurrentPage.php
+│   │
+│   └── Requests/
+│       ├── Admin/
+│       │   ├── StorePageRequest.php
+│       │   ├── UpdateSectionRequest.php
+│       │   └── UploadMediaRequest.php
+│       └── ...
+│
+├── Listeners/
+│   ├── ProcessMediaConversions.php
+│   ├── ClearPageCache.php
+│   └── GenerateWebPVersion.php
+│
+├── Models/
+│   ├── Page.php
+│   ├── PageSection.php
+│   ├── SectionTemplate.php
+│   ├── Media.php
+│   ├── MediaConversion.php
+│   ├── MediaFolder.php
+│   ├── StorageProfile.php
+│   ├── Menu.php
+│   ├── MenuItem.php
+│   ├── LayoutComponent.php
+│   ├── GlobalSetting.php
+│   └── Language.php
+│
+├── Observers/
+│   ├── PageObserver.php
+│   ├── MediaObserver.php
+│   └── MenuObserver.php
+│
+├── PageBuilder/                        # Section Handler'lar
+│   ├── Contracts/
+│   │   └── SectionHandlerInterface.php
+│   │
+│   ├── Handlers/
+│   │   ├── LatestPostsHandler.php
+│   │   ├── SlidersListHandler.php
+│   │   └── DynamicDataHandler.php
+│   │
+│   ├── SectionRegistry.php             # Section tanımları
+│   └── SectionRenderer.php             # Section render engine
+│
+├── Repositories/
+│   ├── Contracts/
+│   │   ├── PageRepositoryInterface.php
+│   │   ├── MediaRepositoryInterface.php
+│   │   └── MenuRepositoryInterface.php
+│   │
+│   ├── PageRepository.php
+│   ├── MediaRepository.php
+│   └── MenuRepository.php
+│
+├── Services/
+│   ├── Page/
+│   │   ├── PageService.php
+│   │   ├── PageCacheService.php
+│   │   └── SeoService.php
+│   │
+│   ├── Media/
+│   │   ├── MediaService.php
+│   │   ├── MediaUploader.php
+│   │   ├── ImageProcessor.php          # Intervention Image
+│   │   ├── WebPConverter.php
+│   │   └── Storage/
+│   │       ├── LocalStorage.php
+│   │       ├── S3Storage.php
+│   │       ├── CloudflareR2Storage.php
+│   │       └── BunnyCDNStorage.php
+│   │
+│   ├── Menu/
+│   │   ├── MenuService.php
+│   │   └── MenuBuilder.php
+│   │
+│   ├── Layout/
+│   │   ├── HeaderService.php
+│   │   ├── FooterService.php
+│   │   └── LayoutResolver.php
+│   │
+│   └── Translation/
+│       ├── TranslationService.php
+│       └── LocaleManager.php
+│
+├── Traits/
+│   ├── HasTranslations.php             # JSON çeviri trait
+│   ├── HasMedia.php
+│   └── Cacheable.php
+│
+└── View/
+    ├── Components/
+    │   ├── Admin/
+    │   │   ├── SectionEditor.php
+    │   │   ├── MediaPicker.php
+    │   │   └── RepeaterField.php
+    │   │
+    │   └── Frontend/
+    │       ├── Picture.php             # Responsive image
+    │       ├── Menu.php
+    │       └── Section.php
+    │
+    └── Composers/
+        ├── LayoutComposer.php
+        ├── MenuComposer.php
+        └── GlobalSettingsComposer.php
+
+config/
+├── cms.php                             # Ana CMS ayarları
+├── sections.php                        # Section tanımları
+├── media.php                           # Media ayarları
+└── localization.php                    # Dil ayarları
+
+database/
+├── migrations/
+│   ├── 2024_01_01_000001_create_languages_table.php
+│   ├── 2024_01_01_000002_create_pages_table.php
+│   ├── 2024_01_01_000003_create_page_sections_table.php
+│   ├── 2024_01_01_000004_create_section_templates_table.php
+│   ├── 2024_01_01_000005_create_storage_profiles_table.php
+│   ├── 2024_01_01_000006_create_media_folders_table.php
+│   ├── 2024_01_01_000007_create_media_table.php
+│   ├── 2024_01_01_000008_create_media_conversions_table.php
+│   ├── 2024_01_01_000009_create_menus_table.php
+│   ├── 2024_01_01_000010_create_menu_items_table.php
+│   ├── 2024_01_01_000011_create_layout_components_table.php
+│   └── 2024_01_01_000012_create_global_settings_table.php
+│
+└── seeders/
+    ├── LanguageSeeder.php
+    ├── SectionTemplateSeeder.php
+    └── DefaultSettingsSeeder.php
+
+resources/
+├── views/
+│   ├── admin/
+│   │   ├── layouts/
+│   │   │   └── app.blade.php
+│   │   │
+│   │   ├── pages/
+│   │   │   ├── index.blade.php
+│   │   │   ├── create.blade.php
+│   │   │   └── edit.blade.php
+│   │   │
+│   │   ├── sections/
+│   │   │   ├── editor.blade.php
+│   │   │   └── partials/
+│   │   │       ├── _field-text.blade.php
+│   │   │       ├── _field-textarea.blade.php
+│   │   │       ├── _field-file.blade.php
+│   │   │       ├── _field-select.blade.php
+│   │   │       ├── _field-repeater.blade.php
+│   │   │       └── _field-iconpicker.blade.php
+│   │   │
+│   │   ├── media/
+│   │   │   ├── index.blade.php
+│   │   │   └── picker.blade.php
+│   │   │
+│   │   ├── menus/
+│   │   │   ├── index.blade.php
+│   │   │   └── builder.blade.php
+│   │   │
+│   │   └── settings/
+│   │       └── index.blade.php
+│   │
+│   ├── frontend/
+│   │   ├── layouts/
+│   │   │   └── app.blade.php
+│   │   │
+│   │   ├── pages/
+│   │   │   ├── show.blade.php
+│   │   │   └── templates/
+│   │   │       ├── default.blade.php
+│   │   │       ├── landing.blade.php
+│   │   │       └── blog.blade.php
+│   │   │
+│   │   ├── sections/                   # Tüm section blade'leri
+│   │   │   ├── _hero-banner-digital.blade.php
+│   │   │   ├── _pricing-packages.blade.php
+│   │   │   ├── _references.blade.php
+│   │   │   └── ... (diğer sectionlar)
+│   │   │
+│   │   └── partials/
+│   │       ├── _header.blade.php
+│   │       ├── _footer.blade.php
+│   │       ├── _menu.blade.php
+│   │       └── _breadcrumb.blade.php
+│   │
+│   └── components/
+│       ├── admin/
+│       │   ├── section-editor.blade.php
+│       │   ├── media-picker.blade.php
+│       │   └── repeater-field.blade.php
+│       │
+│       └── frontend/
+│           ├── picture.blade.php
+│           ├── menu.blade.php
+│           └── section.blade.php
+│
+├── css/
+└── js/
+
+routes/
+├── web.php
+├── admin.php
+└── api.php
+
+4. Veri Akış Şeması
+4.1 Sayfa Render Akışı
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         SAYFA RENDER AKIŞI                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    HTTP Request (GET /hizmetlerimiz)
+           │
+           ▼
+    ┌──────────────────┐
+    │  SetLocale       │──────► Session/Cookie/URL'den dil belirleme
+    │  Middleware      │
+    └────────┬─────────┘
+             │
+             ▼
+    ┌──────────────────┐
+    │  Route           │──────► Route::get('/{slug}', [PageController::class, 'show'])
+    │  Resolution      │
+    └────────┬─────────┘
+             │
+             ▼
+    ┌──────────────────┐
+    │  PageController  │
+    │  show()          │
+    └────────┬─────────┘
+             │
+             ▼
+    ┌──────────────────┐       ┌──────────────────┐
+    │  PageService     │◄──────│  Cache Layer     │
+    │  getBySlug()     │       │  (Redis/File)    │
+    └────────┬─────────┘       └──────────────────┘
+             │
+             │ Cache Miss
+             ▼
+    ┌──────────────────┐
+    │  PageRepository  │
+    │  findBySlug()    │
+    └────────┬─────────┘
+             │
+             ▼
+    ┌──────────────────┐
+    │  Page Model      │──────► with(['sections' => orderBy('order')])
+    │  + Sections      │
+    └────────┬─────────┘
+             │
+             ▼
+    ┌──────────────────┐
+    │  SectionRenderer │
+    │  renderAll()     │
+    └────────┬─────────┘
+             │
+             │ Her section için:
+             ▼
+    ┌──────────────────────────────────────────────────────┐
+    │                                                       │
+    │  ┌──────────────────┐                                │
+    │  │ SectionRegistry  │──────► Section config al        │
+    │  └────────┬─────────┘                                │
+    │           │                                          │
+    │           ▼                                          │
+    │  ┌──────────────────┐                                │
+    │  │ DataHandler?     │──────► Varsa dinamik veri çek   │
+    │  │ (Optional)       │        (Posts, Products, etc.)  │
+    │  └────────┬─────────┘                                │
+    │           │                                          │
+    │           ▼                                          │
+    │  ┌──────────────────┐                                │
+    │  │ TranslationServ. │──────► JSON'dan mevcut dil      │
+    │  │ resolveContent() │        değerlerini çöz          │
+    │  └────────┬─────────┘                                │
+    │           │                                          │
+    │           ▼                                          │
+    │  ┌──────────────────┐                                │
+    │  │ Blade View       │──────► view('sections._hero')   │
+    │  │ Render           │        ->with($data)            │
+    │  └────────┬─────────┘                                │
+    │           │                                          │
+    │           ▼                                          │
+    │       HTML Output                                    │
+    │                                                       │
+    └──────────────────────────────────────────────────────┘
+             │
+             ▼
+    ┌──────────────────┐
+    │  Layout Resolver │──────► Header + Content + Footer
+    └────────┬─────────┘
+             │
+             ▼
+    ┌──────────────────┐
+    │  View Composers  │──────► Menus, Settings, etc.
+    └────────┬─────────┘
+             │
+             ▼
+       Final HTML Response
+4.2 Media Upload Akışı
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         MEDIA UPLOAD AKIŞI                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    HTTP POST /admin/media/upload
+    (multipart/form-data)
+           │
+           ▼
+    ┌──────────────────┐
+    │  UploadMedia     │──────► Validation: mime, size, dimensions
+    │  Request         │
+    └────────┬─────────┘
+             │
+             ▼
+    ┌──────────────────┐
+    │  MediaController │
+    │  store()         │
+    └────────┬─────────┘
+             │
+             ▼
+    ┌──────────────────┐
+    │  MediaUploader   │
+    │  Service         │
+    └────────┬─────────┘
+             │
+             ├─────────────────────────────────────┐
+             │                                     │
+             ▼                                     ▼
+    ┌──────────────────┐               ┌──────────────────┐
+    │  Generate UUID   │               │  Calculate       │
+    │  & Filename      │               │  Checksum        │
+    └────────┬─────────┘               └────────┬─────────┘
+             │                                   │
+             └─────────────┬─────────────────────┘
+                           │
+                           ▼
+    ┌──────────────────────────────────────────────────────┐
+    │              Storage Driver Selection                 │
+    │                                                       │
+    │   ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐│
+    │   │  Local  │  │   S3    │  │   R2    │  │  Bunny  ││
+    │   └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘│
+    │        │            │            │            │      │
+    │        └────────────┴────────────┴────────────┘      │
+    │                          │                           │
+    └──────────────────────────┼───────────────────────────┘
+                               │
+                               ▼
+                      Store Original File
+                               │
+                               ▼
+    ┌──────────────────────────────────────────────────────┐
+    │              Event: MediaUploaded                     │
+    └────────────────────────┬─────────────────────────────┘
+                             │
+                             │ Queue Job (Async)
+                             ▼
+    ┌──────────────────────────────────────────────────────┐
+    │           ProcessMediaConversions Job                 │
+    │                                                       │
+    │   ┌─────────────────────────────────────────────┐    │
+    │   │           ImageProcessor Service             │    │
+    │   │                                              │    │
+    │   │   1. Extract Metadata (EXIF, dimensions)    │    │
+    │   │   2. Generate Thumbnails (thumb, medium)    │    │
+    │   │   3. Convert to WebP                        │    │
+    │   │   4. Extract Dominant Color                 │    │
+    │   │   5. Optimize Original                      │    │
+    │   │                                              │    │
+    │   └──────────────────────┬──────────────────────┘    │
+    │                          │                            │
+    │                          ▼                            │
+    │   ┌─────────────────────────────────────────────┐    │
+    │   │    Store Conversions (same driver)          │    │
+    │   │                                              │    │
+    │   │    /media/2024/12/{uuid}/                    │    │
+    │   │    ├── original.jpg                         │    │
+    │   │    ├── original.webp                        │    │
+    │   │    ├── thumb.webp      (150x150)            │    │
+    │   │    ├── medium.webp     (600x400)            │    │
+    │   │    └── large.webp      (1200x800)           │    │
+    │   │                                              │    │
+    │   └─────────────────────────────────────────────┘    │
+    │                                                       │
+    └──────────────────────────────────────────────────────┘
+                               │
+                               ▼
+    ┌──────────────────────────────────────────────────────┐
+    │                Update Media Record                    │
+    │                                                       │
+    │   variants: {                                         │
+    │     "original": "/media/.../original.jpg",            │
+    │     "webp": "/media/.../original.webp",               │
+    │     "thumb": "/media/.../thumb.webp",                 │
+    │     "medium": "/media/.../medium.webp",               │
+    │     "large": "/media/.../large.webp"                  │
+    │   }                                                   │
+    │                                                       │
+    └──────────────────────────────────────────────────────┘
+
+5. Section Sistemi Detay
+5.1 Section Config Yapısı
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    SECTION CONFIG YAPISI                                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+config/sections.php
+     │
+     ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│  'hero-banner-digital' => [                                                  │
+│      'name' => 'Hero Banner - Dijital Ajans',                               │
+│      'category' => 'hero',                                                   │
+│      'view' => 'frontend.sections._hero-banner-digital',                     │
+│      'icon' => 'fas fa-image',                                              │
+│      'preview' => '/images/sections/hero-preview.jpg',                       │
+│      'data_handler' => null,  // veya Handler::class                         │
+│      'cache_ttl' => 3600,                                                    │
+│      'fields' => [                                                           │
+│          [                                                                   │
+│              'name' => 'badge_text',                                         │
+│              'label' => 'Badge Yazısı',                                      │
+│              'type' => 'text',                                               │
+│              'translatable' => true,                                         │
+│              'default' => "Türkiye'nin #1 Dijital Ajansı",                   │
+│              'rules' => 'required|max:100',                                  │
+│              'help' => 'Hero alanındaki badge metni'                         │
+│          ],                                                                  │
+│          [                                                                   │
+│              'name' => 'hero_image',                                         │
+│              'label' => 'Hero Görseli',                                      │
+│              'type' => 'file',                                               │
+│              'accept' => 'image/*',                                          │
+│              'max_size' => 5120, // KB                                       │
+│              'dimensions' => ['min_width' => 1200]                           │
+│          ],                                                                  │
+│          [                                                                   │
+│              'name' => 'stats',                                              │
+│              'label' => 'İstatistikler',                                     │
+│              'type' => 'repeater',                                           │
+│              'max_items' => 4,                                               │
+│              'fields' => [                                                   │
+│                  ['name' => 'number', 'type' => 'text'],                     │
+│                  ['name' => 'label', 'type' => 'text', 'translatable' => true]│
+│              ]                                                               │
+│          ]                                                                   │
+│      ]                                                                       │
+│  ]                                                                           │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+5.2 Section Editor Admin UI Flow
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    ADMIN SECTION EDITOR AKIŞI                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           PAGE EDITOR                                        │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  Page: Hizmetlerimiz                                      [Publish] │    │
+│  ├─────────────────────────────────────────────────────────────────────┤    │
+│  │                                                                      │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │  SECTIONS                                    [+ Add Section] │    │    │
+│  │  ├─────────────────────────────────────────────────────────────┤    │    │
+│  │  │                                                              │    │    │
+│  │  │  ┌───────────────────────────────────────────────────────┐  │    │    │
+│  │  │  │ ≡  Hero Banner                           [Edit] [✕]   │  │    │    │
+│  │  │  │    hero-banner-digital                                 │  │    │    │
+│  │  │  └───────────────────────────────────────────────────────┘  │    │    │
+│  │  │                          ↕ (drag)                            │    │    │
+│  │  │  ┌───────────────────────────────────────────────────────┐  │    │    │
+│  │  │  │ ≡  Fiyatlandırma Paketleri               [Edit] [✕]   │  │    │    │
+│  │  │  │    pricing-packages-advanced                           │  │    │    │
+│  │  │  └───────────────────────────────────────────────────────┘  │    │    │
+│  │  │                          ↕ (drag)                            │    │    │
+│  │  │  ┌───────────────────────────────────────────────────────┐  │    │    │
+│  │  │  │ ≡  Referanslar                           [Edit] [✕]   │  │    │    │
+│  │  │  │    our-references                                      │  │    │    │
+│  │  │  └───────────────────────────────────────────────────────┘  │    │    │
+│  │  │                                                              │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │                                                                      │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ [Edit] Click
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        SECTION EDITOR MODAL                                  │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  Hero Banner - Dijital Ajans                           [Save] [✕]   │    │
+│  ├─────────────────────────────────────────────────────────────────────┤    │
+│  │                                                                      │    │
+│  │  Language: [TR ▼] [EN]                                              │    │
+│  │                                                                      │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │ Badge Yazısı                                                 │    │    │
+│  │  │ ┌─────────────────────────────────────────────────────────┐ │    │    │
+│  │  │ │ Türkiye'nin #1 Dijital Ajansı                           │ │    │    │
+│  │  │ └─────────────────────────────────────────────────────────┘ │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │                                                                      │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │ Hero Görseli                                    [Select Media]│    │    │
+│  │  │ ┌─────────────────────────────────────────────────────────┐ │    │    │
+│  │  │ │  ┌─────────┐                                            │ │    │    │
+│  │  │ │  │  IMG    │  hero-image.webp                           │ │    │    │
+│  │  │ │  │ Preview │  1920x1080 • 245 KB                        │ │    │    │
+│  │  │ │  └─────────┘                                            │ │    │    │
+│  │  │ └─────────────────────────────────────────────────────────┘ │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │                                                                      │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │ İstatistikler (Repeater)                        [+ Add Item] │    │    │
+│  │  │ ┌───────────────────────────────────────────────────────┐   │    │    │
+│  │  │ │ #1  Number: [36.000+]  Label: [Mutlu Müşteri] [↑][↓][✕]│   │    │    │
+│  │  │ └───────────────────────────────────────────────────────┘   │    │    │
+│  │  │ ┌───────────────────────────────────────────────────────┐   │    │    │
+│  │  │ │ #2  Number: [15+]      Label: [Yıllık Tecrübe] [↑][↓][✕]│   │    │    │
+│  │  │ └───────────────────────────────────────────────────────┘   │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │                                                                      │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+6. Translation (Çoklu Dil) Sistemi
+6.1 JSON Çeviri Yapısı
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    JSON TRANSLATION YAPISI                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Database'de saklanış:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│  pages tablosu:                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  id: 1                                                               │    │
+│  │  slug: "hizmetlerimiz"                                               │    │
+│  │  title: {                                                            │    │
+│  │      "tr": "Hizmetlerimiz",                                          │    │
+│  │      "en": "Our Services",                                           │    │
+│  │      "de": "Unsere Dienstleistungen"                                 │    │
+│  │  }                                                                   │    │
+│  │  meta_description: {                                                 │    │
+│  │      "tr": "Profesyonel dijital hizmetlerimiz...",                   │    │
+│  │      "en": "Our professional digital services...",                   │    │
+│  │      "de": "Unsere professionellen digitalen..."                     │    │
+│  │  }                                                                   │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  page_sections tablosu (content JSON):                                       │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  {                                                                   │    │
+│  │    "badge_text": {                                                   │    │
+│  │      "tr": "Türkiye'nin #1 Dijital Ajansı",                          │    │
+│  │      "en": "Turkey's #1 Digital Agency"                              │    │
+│  │    },                                                                │    │
+│  │    "hero_image": "/media/2024/12/hero.webp",  // Non-translatable    │    │
+│  │    "stats": [                                                        │    │
+│  │      {                                                               │    │
+│  │        "number": "36.000+",                                          │    │
+│  │        "label": {                                                    │    │
+│  │          "tr": "Mutlu Müşteri",                                      │    │
+│  │          "en": "Happy Clients"                                       │    │
+│  │        }                                                             │    │
+│  │      }                                                               │    │
+│  │    ]                                                                 │    │
+│  │  }                                                                   │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+6.2 Translation Resolution Flow
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    TRANSLATION RESOLUTION AKIŞI                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Request: GET /en/our-services
+         │
+         ▼
+┌──────────────────┐
+│  SetLocale       │
+│  Middleware      │
+│                  │
+│  1. URL prefix   │──────► /en/... → locale = 'en'
+│  2. Session      │
+│  3. Cookie       │
+│  4. Browser      │
+│  5. Default      │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│  app()->setLocale('en')
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  Model: HasTranslations Trait                                                │
+│                                                                              │
+│  class Page extends Model {                                                  │
+│      use HasTranslations;                                                    │
+│                                                                              │
+│      public $translatable = ['title', 'meta_description', ...];              │
+│                                                                              │
+│      // Otomatik accessor                                                    │
+│      public function getTitleAttribute($value) {                             │
+│          return $this->getTranslation('title', app()->getLocale());         │
+│      }                                                                       │
+│  }                                                                           │
+│                                                                              │
+│  $page->title  →  "Our Services" (locale = 'en')                             │
+│  $page->getTranslation('title', 'tr')  →  "Hizmetlerimiz"                    │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+Section Content Resolution:
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│  TranslationService::resolveContent($content, $locale, $fieldSchema)         │
+│                                                                              │
+│  Input:                                                                      │
+│  $content = [                                                                │
+│      'badge_text' => ['tr' => '...', 'en' => '...'],                        │
+│      'hero_image' => '/path/to/image.webp',                                  │
+│      'stats' => [                                                            │
+│          ['number' => '36K', 'label' => ['tr' => '...', 'en' => '...']]     │
+│      ]                                                                       │
+│  ];                                                                          │
+│                                                                              │
+│  Output (locale = 'en'):                                                     │
+│  $resolved = [                                                               │
+│      'badge_text' => "Turkey's #1 Digital Agency",                          │
+│      'hero_image' => '/path/to/image.webp',                                  │
+│      'stats' => [                                                            │
+│          ['number' => '36K', 'label' => 'Happy Clients']                    │
+│      ]                                                                       │
+│  ];                                                                          │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+7. Media URL Generation
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    MEDIA URL GENERATION                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Blade'de kullanım:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│  <x-picture                                                                  │
+│      :media="$media"                                                         │
+│      sizes="(max-width: 768px) 100vw, 50vw"                                  │
+│      :conversions="['thumb', 'medium', 'large']"                             │
+│      loading="lazy"                                                          │
+│      class="rounded-lg"                                                      │
+│  />                                                                          │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Rendered HTML:                                                              │
+│                                                                              │
+│  <picture>                                                                   │
+│    <source                                                                   │
+│      type="image/webp"                                                       │
+│      srcset="                                                                │
+│        https://cdn.example.com/media/.../thumb.webp 150w,                    │
+│        https://cdn.example.com/media/.../medium.webp 600w,                   │
+│        https://cdn.example.com/media/.../large.webp 1200w                    │
+│      "                                                                       │
+│      sizes="(max-width: 768px) 100vw, 50vw"                                  │
+│    />                                                                        │
+│    <source                                                                   │
+│      type="image/jpeg"                                                       │
+│      srcset="                                                                │
+│        https://cdn.example.com/media/.../thumb.jpg 150w,                     │
+│        https://cdn.example.com/media/.../medium.jpg 600w,                    │
+│        https://cdn.example.com/media/.../large.jpg 1200w                     │
+│      "                                                                       │
+│      sizes="(max-width: 768px) 100vw, 50vw"                                  │
+│    />                                                                        │
+│    <img                                                                      │
+│      src="https://cdn.example.com/media/.../medium.jpg"                      │
+│      alt="..."                                                               │
+│      loading="lazy"                                                          │
+│      class="rounded-lg"                                                      │
+│      width="600"                                                             │
+│      height="400"                                                            │
+│    />                                                                        │
+│  </picture>                                                                  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+8. Caching Strategy
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         CACHING STRATEJİSİ                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│  Cache Layers:                                                               │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  1. Route Cache (Laravel)                                            │    │
+│  │     php artisan route:cache                                          │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  2. Config Cache (Laravel)                                           │    │
+│  │     php artisan config:cache                                         │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  3. View Cache (Laravel)                                             │    │
+│  │     php artisan view:cache                                           │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  4. Data Cache (Redis/Memcached)                                     │    │
+│  │                                                                      │    │
+│  │     Cache Keys:                                                      │    │
+│  │     ├── page:{locale}:{slug}           → Full page data (1h)         │    │
+│  │     ├── page:{id}:sections             → Page sections (1h)          │    │
+│  │     ├── menu:{location}:{locale}       → Rendered menu HTML (1h)     │    │
+│  │     ├── settings:{group}               → Settings by group (24h)     │    │
+│  │     ├── media:{id}:urls                → Media URLs (24h)            │    │
+│  │     └── section_templates              → All section configs (24h)   │    │
+│  │                                                                      │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  5. Full Page Cache (Varnish/Nginx - Optional)                       │    │
+│  │     Static sayfalar için HTTP caching                                │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Cache Invalidation:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│  Event                          →  Cache Tags to Clear                       │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│  Page Updated                   →  ['pages', 'page:{id}']                   │
+│  Section Updated                →  ['pages', 'page:{page_id}']              │
+│  Menu Updated                   →  ['menus', 'menu:{location}']             │
+│  Media Updated                  →  ['media', 'media:{id}']                  │
+│  Settings Updated               →  ['settings', 'settings:{group}']        │
+│  Language Added/Removed         →  ['*'] (full clear)                       │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+9. Özet: Modül İlişkileri
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       MODÜL İLİŞKİ ŞEMASI                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                    ┌─────────────────┐
+                    │   Languages     │
+                    │   (tr, en, de)  │
+                    └────────┬────────┘
+                             │
+              ┌──────────────┼──────────────┐
+              │              │              │
+              ▼              ▼              ▼
+     ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+     │    Pages    │  │    Menus    │  │  Settings   │
+     │             │  │             │  │             │
+     │ title(JSON) │  │ name(JSON)  │  │ value(JSON) │
+     └──────┬──────┘  └──────┬──────┘  └─────────────┘
+            │                │
+            │                │
+     ┌──────▼──────┐  ┌──────▼──────┐
+     │   Sections  │  │  MenuItems  │
+     │             │  │             │
+     │content(JSON)│  │ title(JSON) │
+     └──────┬──────┘  └─────────────┘
+            │
+            │ references
+            ▼
+     ┌─────────────┐
+     │    Media    │
+     │             │
+     │ title(JSON) │
+     │ alt(JSON)   │
+     │ variants    │
+     └──────┬──────┘
+            │
+            │ stored in
+            ▼
+     ┌─────────────┐
+     │  Storage    │
+     │  Profiles   │
+     │             │
+     │ local/s3/r2 │
+     └─────────────┘
+
+Bu mimari ile:
+
+Dinamik Sayfa/Section: pages + page_sections + section_templates
+Çoklu Dil: Tüm çevrilebilir alanlar JSON olarak tek kolonda
+Media Sistemi: Multi-driver storage + otomatik WebP + responsive variants
+Menü Yönetimi: WordPress tarzı drag-drop, nested, mega menu desteği
+Header/Footer: layout_components tablosu ile yönetim
+Cache: Çok katmanlı, tag-based invalidation
+
+Hangi bölümün detaylandırılmasını istersin?Dbir ek olarak şu özellikleri istiyorum ve bu özelliklerin hepsi admin panelinden yönetilebilir olsun1-) google recaptcha v2, v3
+2-) sayfalar için aio seo veya rank math benzeri bir yönetim olacka her sayfa için seo detaylı olacak (schema üretimi vs.)
+3-) bloglar için aio seo veya rank math benzeri bir yönetim olacka her sayfa için seo detaylı olacak (schema üretimi vs.)
+4-) analytics, serach console, yandex, vb. meta entegrasyonu olacak
+5-) admin tarafında page ve page section şu şekilde olacak sol tarafda sections.php'deki tasarımalar cardlar şekline sıralanacak ve sürükle bırak ile sol tarafa sürüklenecek burada sayfa iskeleti oluşmuş olacak, section kopyalama, section ordar güncelleme, section status güncelleme olacak 
+6-) site ayarları key-value şekinde olacak Show more2 / 2Güncellenmiş Laravel 11 + Blade CMS Mimari Tasarımı
+1. Ek Özellikler Genel Görünümü
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         EK ÖZELLİKLER HARİTASI                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐              │
+│  │   reCAPTCHA     │  │   SEO Manager   │  │   Analytics     │              │
+│  │   v2 & v3       │  │   (AIO/Rank     │  │   Integration   │              │
+│  │                 │  │    Math Style)  │  │                 │              │
+│  └────────┬────────┘  └────────┬────────┘  └────────┬────────┘              │
+│           │                    │                    │                        │
+│           └────────────────────┼────────────────────┘                        │
+│                                │                                             │
+│                       ┌────────▼────────┐                                    │
+│                       │  Admin Panel    │                                    │
+│                       │  (Centralized)  │                                    │
+│                       └────────┬────────┘                                    │
+│                                │                                             │
+│           ┌────────────────────┼────────────────────┐                        │
+│           │                    │                    │                        │
+│  ┌────────▼────────┐  ┌────────▼────────┐  ┌───────▼─────────┐              │
+│  │  Page Builder   │  │  Site Settings  │  │   Blog SEO      │              │
+│  │  (Drag & Drop)  │  │  (Key-Value)    │  │   Manager       │              │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘              │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+2. Güncellenmiş Veritabanı Şeması
+2.1 reCAPTCHA & Security Settings
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      RECAPTCHA & SECURITY TABLES                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────┐
+│     recaptcha_settings      │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ version                     │──────► 'v2_checkbox', 'v2_invisible', 'v3'
+│ site_key                    │
+│ secret_key                  │
+│ v3_threshold                │──────► 0.5 (default)
+│ enabled_forms (JSON)        │──────► ['contact', 'login', 'register', 'comment']
+│ is_active                   │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│     form_submissions        │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ form_type                   │──────► 'contact', 'newsletter', etc.
+│ data (JSON)                 │
+│ recaptcha_score             │──────► v3 için score
+│ recaptcha_action            │
+│ ip_address                  │
+│ user_agent                  │
+│ is_spam                     │
+│ processed_at                │
+│ timestamps                  │
+└─────────────────────────────┘
+2.2 SEO Manager (AIO SEO / Rank Math Style)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         SEO MANAGER TABLES                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────┐
+│      seo_settings           │  (Global SEO Ayarları)
+├─────────────────────────────┤
+│ id (PK)                     │
+│ site_title (JSON)           │
+│ title_separator             │──────► ' | ', ' - ', ' » '
+│ meta_description (JSON)     │
+│ default_og_image            │
+│ twitter_card_type           │──────► 'summary', 'summary_large_image'
+│ twitter_site                │──────► @username
+│ schema_organization (JSON)  │──────► Organization schema
+│ schema_website (JSON)       │──────► WebSite schema
+│ robots_txt                  │
+│ enable_sitemap              │
+│ sitemap_exclude_patterns    │──────► JSON array
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│      seo_templates          │  (Sayfa Türüne Göre SEO Şablonları)
+├─────────────────────────────┤
+│ id (PK)                     │
+│ type                        │──────► 'page', 'post', 'category', 'product'
+│ title_template (JSON)       │──────► "%title% %sep% %sitename%"
+│ description_template (JSON) │──────► "%excerpt%"
+│ schema_type                 │──────► 'WebPage', 'Article', 'BlogPosting'
+│ default_robots              │──────► 'index,follow'
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│       seo_meta              │  (Her içerik için SEO meta - polymorphic)
+├─────────────────────────────┤
+│ id (PK)                     │
+│ seoable_type                │──────► 'App\Models\Page', 'App\Models\Post'
+│ seoable_id                  │
+│ ─────────────────────────── │
+│ # Temel SEO                 │
+│ seo_title (JSON)            │──────► Override veya null (template kullan)
+│ meta_description (JSON)     │
+│ focus_keyword (JSON)        │
+│ secondary_keywords (JSON)   │──────► ["keyword1", "keyword2"]
+│ canonical_url               │
+│ ─────────────────────────── │
+│ # Robots                    │
+│ robots_index                │──────► true/false
+│ robots_follow               │──────► true/false
+│ robots_advanced (JSON)      │──────► ['noarchive', 'nosnippet', 'max-image-preview:large']
+│ ─────────────────────────── │
+│ # Open Graph                │
+│ og_title (JSON)             │
+│ og_description (JSON)       │
+│ og_image                    │
+│ og_type                     │──────► 'article', 'website', 'product'
+│ ─────────────────────────── │
+│ # Twitter Card              │
+│ twitter_title (JSON)        │
+│ twitter_description (JSON)  │
+│ twitter_image               │
+│ twitter_card_type           │
+│ ─────────────────────────── │
+│ # Schema.org                │
+│ schema_type                 │──────► 'Article', 'FAQPage', 'Product', etc.
+│ schema_data (JSON)          │──────► Custom schema fields
+│ auto_schema                 │──────► true (otomatik üret)
+│ manual_schema (JSON)        │──────► Manuel JSON-LD override
+│ ─────────────────────────── │
+│ # Breadcrumb                │
+│ breadcrumb_title (JSON)     │
+│ ─────────────────────────── │
+│ # Redirect                  │
+│ redirect_enabled            │
+│ redirect_url                │
+│ redirect_type               │──────► 301, 302, 307
+│ ─────────────────────────── │
+│ # Analysis                  │
+│ seo_score                   │──────► 0-100
+│ readability_score           │──────► 0-100
+│ analysis_data (JSON)        │──────► Detaylı analiz sonuçları
+│ last_analyzed_at            │
+│ ─────────────────────────── │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│      seo_redirects          │  (Global redirect kuralları)
+├─────────────────────────────┤
+│ id (PK)                     │
+│ source_url                  │
+│ target_url                  │
+│ redirect_type               │──────► 301, 302, 307, 410
+│ match_type                  │──────► 'exact', 'regex', 'prefix'
+│ hit_count                   │
+│ last_hit_at                 │
+│ is_active                   │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│     seo_analysis_rules      │  (SEO Analiz Kuralları)
+├─────────────────────────────┤
+│ id (PK)                     │
+│ rule_key                    │──────► 'focus_keyword_in_title', 'meta_desc_length'
+│ rule_name (JSON)            │
+│ rule_description (JSON)     │
+│ category                    │──────► 'basic', 'readability', 'technical'
+│ weight                      │──────► 1-10 (importance)
+│ pass_criteria (JSON)        │──────► {"min": 50, "max": 160}
+│ is_active                   │
+│ timestamps                  │
+└─────────────────────────────┘
+2.3 Blog System with SEO
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         BLOG SYSTEM TABLES                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────┐
+│          posts              │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ uuid                        │
+│ slug                        │
+│ title (JSON)                │
+│ excerpt (JSON)              │
+│ content (JSON)              │──────► Quill/TipTap editor content
+│ featured_image              │
+│ status                      │──────► 'draft', 'published', 'scheduled'
+│ type                        │──────► 'post', 'page', 'news'
+│ visibility                  │──────► 'public', 'private', 'password'
+│ password                    │
+│ author_id (FK→users)        │
+│ published_at                │
+│ scheduled_at                │
+│ reading_time                │──────► Otomatik hesaplanan
+│ view_count                  │
+│ is_featured                 │
+│ is_sticky                   │
+│ allow_comments              │
+│ timestamps                  │
+│ deleted_at                  │
+└───────────┬─────────────────┘
+            │
+            │ M:N
+            ▼
+┌─────────────────────────────┐
+│       post_categories       │ (Pivot)
+├─────────────────────────────┤
+│ post_id (FK)                │
+│ category_id (FK)            │
+│ is_primary                  │──────► Primary category for breadcrumb
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│        categories           │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ parent_id (FK→self)         │
+│ slug                        │
+│ name (JSON)                 │
+│ description (JSON)          │
+│ image                       │
+│ order                       │
+│ is_active                   │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│          tags               │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ slug                        │
+│ name (JSON)                 │
+│ description (JSON)          │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│        post_tags            │ (Pivot)
+├─────────────────────────────┤
+│ post_id (FK)                │
+│ tag_id (FK)                 │
+└─────────────────────────────┘
+2.4 Analytics & Tracking Integration
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      ANALYTICS INTEGRATION TABLES                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────┐
+│    tracking_integrations    │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ platform                    │──────► 'google_analytics', 'gtm', 'search_console',
+│                             │        'yandex_metrica', 'facebook_pixel',
+│                             │        'linkedin_insight', 'bing_webmaster',
+│                             │        'pinterest_tag', 'tiktok_pixel'
+│ name                        │──────► Display name
+│ tracking_id                 │──────► GA-XXXXX, GTM-XXXXX, etc.
+│ config (JSON)               │──────► Platform-specific config
+│ placement                   │──────► 'head', 'body_start', 'body_end'
+│ is_active                   │
+│ environment (JSON)          │──────► ['production', 'staging'] veya ['all']
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│    verification_meta_tags   │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ platform                    │──────► 'google', 'bing', 'yandex', 'pinterest', etc.
+│ meta_name                   │──────► 'google-site-verification'
+│ meta_content                │──────► Verification code
+│ is_active                   │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│      custom_scripts         │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ name                        │
+│ placement                   │──────► 'head', 'body_start', 'body_end'
+│ script_content              │──────► Raw HTML/JS
+│ load_condition (JSON)       │──────► {"pages": ["home", "contact"], "exclude": []}
+│ priority                    │──────► Yükleme sırası
+│ is_active                   │
+│ timestamps                  │
+└─────────────────────────────┘
+2.5 Site Settings (Key-Value)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      SITE SETTINGS (KEY-VALUE)                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────┐
+│      settings_groups        │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ key                         │──────► 'general', 'contact', 'social', 'mail', etc.
+│ name (JSON)                 │
+│ description (JSON)          │
+│ icon                        │──────► 'fas fa-cog'
+│ order                       │
+│ is_active                   │
+│ timestamps                  │
+└───────────┬─────────────────┘
+            │
+            │ 1:N
+            ▼
+┌─────────────────────────────┐
+│         settings            │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ group_id (FK)               │
+│ key                         │──────► 'site_name', 'logo', 'phone', etc.
+│ value (JSON)                │──────► Translatable değerler için JSON
+│ type                        │──────► 'text', 'textarea', 'image', 'file',
+│                             │        'boolean', 'number', 'select', 'color',
+│                             │        'array', 'json', 'editor'
+│ options (JSON)              │──────► Select için: [{"value": "x", "label": "X"}]
+│ is_translatable             │
+│ validation_rules            │──────► 'required|max:255'
+│ label (JSON)                │
+│ help_text (JSON)            │
+│ placeholder (JSON)          │
+│ order                       │
+│ is_active                   │
+│ timestamps                  │
+└─────────────────────────────┘
+
+Örnek Settings Grupları:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│  general:                                                                    │
+│    ├── site_name (text, translatable)                                       │
+│    ├── site_tagline (text, translatable)                                    │
+│    ├── logo (image)                                                         │
+│    ├── logo_dark (image)                                                    │
+│    ├── favicon (image)                                                      │
+│    ├── timezone (select)                                                    │
+│    └── date_format (select)                                                 │
+│                                                                              │
+│  contact:                                                                    │
+│    ├── email (text)                                                         │
+│    ├── phone (text)                                                         │
+│    ├── whatsapp (text)                                                      │
+│    ├── address (textarea, translatable)                                     │
+│    ├── google_maps_embed (textarea)                                         │
+│    └── working_hours (json)                                                 │
+│                                                                              │
+│  social:                                                                     │
+│    ├── facebook_url (text)                                                  │
+│    ├── twitter_url (text)                                                   │
+│    ├── instagram_url (text)                                                 │
+│    ├── linkedin_url (text)                                                  │
+│    ├── youtube_url (text)                                                   │
+│    └── tiktok_url (text)                                                    │
+│                                                                              │
+│  mail:                                                                       │
+│    ├── mail_driver (select)                                                 │
+│    ├── smtp_host (text)                                                     │
+│    ├── smtp_port (number)                                                   │
+│    ├── smtp_username (text)                                                 │
+│    ├── smtp_password (password)                                             │
+│    ├── smtp_encryption (select)                                             │
+│    ├── mail_from_address (text)                                             │
+│    └── mail_from_name (text, translatable)                                  │
+│                                                                              │
+│  appearance:                                                                 │
+│    ├── primary_color (color)                                                │
+│    ├── secondary_color (color)                                              │
+│    ├── header_style (select)                                                │
+│    ├── footer_style (select)                                                │
+│    └── custom_css (textarea)                                                │
+│                                                                              │
+│  maintenance:                                                                │
+│    ├── maintenance_mode (boolean)                                           │
+│    ├── maintenance_message (editor, translatable)                           │
+│    └── allowed_ips (array)                                                  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+3. Page Builder (Drag & Drop) UI Tasarımı
+3.1 Admin Page Builder Layout
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      PAGE BUILDER ADMIN UI                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  ◄ Back to Pages    Page: Hizmetlerimiz                   [Preview] [Save]  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────────────────────┬─────────────────────────────────────────────┐  │
+│  │   AVAILABLE SECTIONS    │            PAGE STRUCTURE                    │  │
+│  │   (Drag from here)      │            (Drop here)                       │  │
+│  ├─────────────────────────┼─────────────────────────────────────────────┤  │
+│  │                         │                                              │  │
+│  │  🔍 Search sections...  │  ┌─────────────────────────────────────────┐ │  │
+│  │                         │  │         DROP ZONE (Empty)                │ │  │
+│  │  ┌─ Hero ─────────────┐ │  │                                         │ │  │
+│  │  │                    │ │  │    Drag sections here to build          │ │  │
+│  │  │ ┌────────────────┐ │ │  │    your page structure                  │ │  │
+│  │  │ │ ┌────┐         │ │ │  │                                         │ │  │
+│  │  │ │ │ 🖼️ │ Hero    │ │ │  └─────────────────────────────────────────┘ │  │
+│  │  │ │ │    │ Banner  │ │ │                                              │  │
+│  │  │ │ └────┘ Digital │ │ │  ═══════════════════════════════════════════ │  │
+│  │  │ └────────────────┘ │ │                                              │  │
+│  │  │                    │ │  VEYA (Sections eklendiğinde):               │  │
+│  │  │ ┌────────────────┐ │ │                                              │  │
+│  │  │ │ ┌────┐         │ │ │  ┌─────────────────────────────────────────┐ │  │
+│  │  │ │ │ 🖼️ │ Main    │ │ │  │ #1  Hero Banner Digital          ⚡ ON  │ │  │
+│  │  │ │ │    │ Slider  │ │ │  │     ┌────────────────────────────────┐  │ │  │
+│  │  │ │ └────┘         │ │ │  │     │ [Edit] [Copy] [↑] [↓] [🗑️]    │  │ │  │
+│  │  │ └────────────────┘ │ │  │     └────────────────────────────────┘  │ │  │
+│  │  └────────────────────┘ │  └─────────────────────────────────────────┘ │  │
+│  │                         │                      ↕ drag to reorder        │  │
+│  │  ┌─ Content ──────────┐ │  ┌─────────────────────────────────────────┐ │  │
+│  │  │                    │ │  │ #2  Pricing Packages            ⚡ ON   │ │  │
+│  │  │ ┌────────────────┐ │ │  │     ┌────────────────────────────────┐  │ │  │
+│  │  │ │ ┌────┐         │ │ │  │     │ [Edit] [Copy] [↑] [↓] [🗑️]    │  │ │  │
+│  │  │ │ │ 💰 │ Pricing │ │ │  │     └────────────────────────────────┘  │ │  │
+│  │  │ │ │    │ Packages│ │ │  └─────────────────────────────────────────┘ │  │
+│  │  │ │ └────┘         │ │ │                      ↕ drag to reorder        │  │
+│  │  │ └────────────────┘ │ │  ┌─────────────────────────────────────────┐ │  │
+│  │  │                    │ │  │ #3  References                  ⚠️ OFF  │ │  │
+│  │  │ ┌────────────────┐ │ │  │     ┌────────────────────────────────┐  │ │  │
+│  │  │ │ ┌────┐         │ │ │  │     │ [Edit] [Copy] [↑] [↓] [🗑️]    │  │ │  │
+│  │  │ │ │ ⭐ │ Referen-│ │ │  │     └────────────────────────────────┘  │ │  │
+│  │  │ │ │    │ ces     │ │ │  └─────────────────────────────────────────┘ │  │
+│  │  │ │ └────┘         │ │ │                                              │  │
+│  │  │ └────────────────┘ │ │  ┌─────────────────────────────────────────┐ │  │
+│  │  │                    │ │  │              + Add Section               │ │  │
+│  │  │ ┌────────────────┐ │ │  │         (or drag from left)              │ │  │
+│  │  │ │ ┌────┐         │ │ │  └─────────────────────────────────────────┘ │  │
+│  │  │ │ │ ❓ │ FAQ     │ │ │                                              │  │
+│  │  │ │ │    │ Accordi-│ │ │                                              │  │
+│  │  │ │ └────┘ on      │ │ │                                              │  │
+│  │  │ └────────────────┘ │ │                                              │  │
+│  │  └────────────────────┘ │                                              │  │
+│  │                         │                                              │  │
+│  │  ┌─ CTA ──────────────┐ │                                              │  │
+│  │  │ ...                │ │                                              │  │
+│  │  └────────────────────┘ │                                              │  │
+│  │                         │                                              │  │
+│  └─────────────────────────┴─────────────────────────────────────────────┘  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+3.2 Section Card Component (Sol Panel)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      SECTION CARD COMPONENT                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Draggable Section Card:
+┌─────────────────────────────────────────┐
+│  ┌─────────────────────────────────┐    │
+│  │         PREVIEW IMAGE           │    │
+│  │     (section screenshot)        │    │
+│  │                                 │    │
+│  │      ┌─────────────────┐        │    │
+│  │      │     🖼️ 📊       │        │    │
+│  │      │   Hero Banner   │        │    │
+│  │      └─────────────────┘        │    │
+│  │                                 │    │
+│  └─────────────────────────────────┘    │
+│                                         │
+│  Hero Banner - Dijital Ajans            │
+│  ────────────────────────────────────   │
+│  Animasyonlu hero section, istatistik   │
+│  kartları ve CTA butonları ile          │
+│                                         │
+│  📁 Category: Hero                      │
+│                                         │
+└─────────────────────────────────────────┘
+
+Kategoriler:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│  [All] [Hero] [Content] [CTA] [Features] [Testimonials] [Pricing] [FAQ]     │
+│                                                                              │
+│  Filtreleme & Arama:                                                         │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ 🔍 Search sections...                                                │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+3.3 Page Structure Item (Sağ Panel)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    PAGE STRUCTURE ITEM COMPONENT                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Active Section Item:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ ≡  #1                                                                │    │
+│  │    ┌─────┐                                                          │    │
+│  │    │ 🖼️  │  Hero Banner - Dijital Ajans                             │    │
+│  │    │     │  hero-banner-digital                                      │    │
+│  │    └─────┘                                                          │    │
+│  │                                                                      │    │
+│  │    Status: ●━━━━━━━━━ Active                                        │    │
+│  │                       [Toggle]                                       │    │
+│  │                                                                      │    │
+│  │    ┌────────────────────────────────────────────────────────────┐   │    │
+│  │    │                                                            │   │    │
+│  │    │  [✏️ Edit]  [📋 Copy]  [⬆️ Up]  [⬇️ Down]  [🗑️ Delete]     │   │    │
+│  │    │                                                            │   │    │
+│  │    └────────────────────────────────────────────────────────────┘   │    │
+│  │                                                                      │    │
+│  │    Last edited: 2 hours ago                                         │    │
+│  │                                                                      │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Collapsed State:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ≡  #1  🖼️ Hero Banner Digital                    ●ON  [Edit][Copy][⬆⬇][🗑️] │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Inactive Section (Dimmed):
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ≡  #3  ⭐ References                             ○OFF [Edit][Copy][⬆⬇][🗑️] │
+│        (Inactive - won't render on frontend)                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+3.4 Section Editor Modal (Edit Tıklandığında)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      SECTION EDITOR MODAL                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  ╔═══════════════════════════════════════════════════════════════════════╗  │
+│  ║  Hero Banner - Dijital Ajans                       [Cancel] [💾 Save] ║  │
+│  ╠═══════════════════════════════════════════════════════════════════════╣  │
+│  ║                                                                        ║  │
+│  ║  ┌─────────────────────────────────────────────────────────────────┐  ║  │
+│  ║  │  [General] [Content] [Style] [Advanced]                         │  ║  │
+│  ║  └─────────────────────────────────────────────────────────────────┘  ║  │
+│  ║                                                                        ║  │
+│  ║  Language: [🇹🇷 TR ▼] [🇬🇧 EN] [🇩🇪 DE]                                ║  │
+│  ║                                                                        ║  │
+│  ║  ┌─────────────────────────────────────────────────────────────────┐  ║  │
+│  ║  │ Badge Yazısı *                                          [TR 🌐] │  ║  │
+│  ║  │ ┌─────────────────────────────────────────────────────────────┐ │  ║  │
+│  ║  │ │ Türkiye'nin #1 Dijital Ajansı                               │ │  ║  │
+│  ║  │ └─────────────────────────────────────────────────────────────┘ │  ║  │
+│  ║  │ ℹ️ Hero alanındaki badge metni                                  │  ║  │
+│  ║  └─────────────────────────────────────────────────────────────────┘  ║  │
+│  ║                                                                        ║  │
+│  ║  ┌─────────────────────────────────────────────────────────────────┐  ║  │
+│  ║  │ Ana Başlık - Part 1 *                                   [TR 🌐] │  ║  │
+│  ║  │ ┌─────────────────────────────────────────────────────────────┐ │  ║  │
+│  ║  │ │ Dijitalleşmeye                                              │ │  ║  │
+│  ║  │ └─────────────────────────────────────────────────────────────┘ │  ║  │
+│  ║  └─────────────────────────────────────────────────────────────────┘  ║  │
+│  ║                                                                        ║  │
+│  ║  ┌─────────────────────────────────────────────────────────────────┐  ║  │
+│  ║  │ Hero Görseli                                    [📁 Select Media]│  ║  │
+│  ║  │ ┌─────────────────────────────────────────────────────────────┐ │  ║  │
+│  ║  │ │  ┌─────────────┐                                            │ │  ║  │
+│  ║  │ │  │             │  hero-banner.webp                          │ │  ║  │
+│  ║  │ │  │   PREVIEW   │  1920 x 1080 • 245 KB                      │ │  ║  │
+│  ║  │ │  │             │  [Remove]                                  │ │  ║  │
+│  ║  │ │  └─────────────┘                                            │ │  ║  │
+│  ║  │ └─────────────────────────────────────────────────────────────┘ │  ║  │
+│  ║  └─────────────────────────────────────────────────────────────────┘  ║  │
+│  ║                                                                        ║  │
+│  ║  ┌─────────────────────────────────────────────────────────────────┐  ║  │
+│  ║  │ İstatistikler (Repeater)                         [+ Add Item]   │  ║  │
+│  ║  │ ┌───────────────────────────────────────────────────────────┐   │  ║  │
+│  ║  │ │ ≡ #1                                          [↑][↓][🗑️]  │   │  ║  │
+│  ║  │ │   Number: [36.000+ ]  Label: [Mutlu Müşteri     ] [TR 🌐] │   │  ║  │
+│  ║  │ └───────────────────────────────────────────────────────────┘   │  ║  │
+│  ║  │ ┌───────────────────────────────────────────────────────────┐   │  ║  │
+│  ║  │ │ ≡ #2                                          [↑][↓][🗑️]  │   │  ║  │
+│  ║  │ │   Number: [15+      ]  Label: [Yıllık Tecrübe  ] [TR 🌐]  │   │  ║  │
+│  ║  │ └───────────────────────────────────────────────────────────┘   │  ║  │
+│  ║  └─────────────────────────────────────────────────────────────────┘  ║  │
+│  ║                                                                        ║  │
+│  ╚═══════════════════════════════════════════════════════════════════════╝  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+4. SEO Manager UI Tasarımı
+4.1 SEO Editor Panel (Page/Post Edit Sayfasında)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        SEO EDITOR PANEL                                      │
+│                   (AIO SEO / Rank Math Style)                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  SEO ANALYSIS                                              Score: 78 │    │
+│  │  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │    │
+│  │                                                                      │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │  🟢 Good (5)    🟡 Improvements (3)    🔴 Errors (1)         │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │                                                                      │    │
+│  │  Focus Keyword: "dijital ajans hizmetleri"                          │    │
+│  │                                                                      │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │  ✅ Focus keyword in SEO title                               │    │    │
+│  │  │  ✅ Focus keyword in meta description                        │    │    │
+│  │  │  ✅ Focus keyword in URL                                     │    │    │
+│  │  │  ✅ Focus keyword in first paragraph                         │    │    │
+│  │  │  ✅ Content length is good (1,250 words)                     │    │    │
+│  │  │  ⚠️ Focus keyword density is low (0.8%)                      │    │    │
+│  │  │  ⚠️ No outbound links found                                  │    │    │
+│  │  │  ⚠️ Add more images with alt text                            │    │    │
+│  │  │  ❌ Meta description too short (95 chars)                    │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │                                                                      │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  [General] [Social] [Schema] [Advanced]                              │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  ═══════════════════════════════════════════════════════════════════════    │
+│                                                                              │
+│  ┌─ GENERAL TAB ───────────────────────────────────────────────────────┐    │
+│  │                                                                      │    │
+│  │  Focus Keyword *                                                     │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │ dijital ajans hizmetleri                                    │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │                                                                      │    │
+│  │  Secondary Keywords (comma separated)                                │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │ web tasarım, seo hizmeti, dijital pazarlama                 │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │                                                                      │    │
+│  │  ─────────────────────────────────────────────────────────────────  │    │
+│  │                                                                      │    │
+│  │  SEO Title                                             55/60 chars  │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │ Dijital Ajans Hizmetleri | Next Medya                       │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │  ℹ️ Variables: %title%, %sitename%, %sep%, %page%                   │    │
+│  │                                                                      │    │
+│  │  PREVIEW:                                                            │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │ 🔵 Dijital Ajans Hizmetleri | Next Medya                    │    │    │
+│  │  │ 🌐 nextmedya.com › hizmetlerimiz                            │    │    │
+│  │  │ Profesyonel dijital ajans hizmetleri. SEO, web tasarım...   │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │                                                                      │    │
+│  │  Meta Description                                     95/160 chars  │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │ Profesyonel dijital ajans hizmetleri. SEO, web tasarım,     │    │    │
+│  │  │ sosyal medya yönetimi ve daha fazlası.                      │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │  🔴 Add 65 more characters for optimal length                       │    │
+│  │                                                                      │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+4.2 Social Tab
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  ┌─ SOCIAL TAB ────────────────────────────────────────────────────────┐    │
+│  │                                                                      │    │
+│  │  [Facebook / Open Graph]  [Twitter Card]                             │    │
+│  │                                                                      │    │
+│  │  ═══════════════════════════════════════════════════════════════    │    │
+│  │                                                                      │    │
+│  │  OG Title                                                            │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │ Dijital Ajans Hizmetleri                                    │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │  [ ] Use SEO Title                                                  │    │
+│  │                                                                      │    │
+│  │  OG Description                                                      │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │ Profesyonel dijital ajans hizmetleri...                     │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │  [ ] Use Meta Description                                           │    │
+│  │                                                                      │    │
+│  │  OG Image                                         [📁 Select Media] │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │  ┌───────────────────────────────────────────────────────┐  │    │    │
+│  │  │  │                                                       │  │    │    │
+│  │  │  │              1200 x 630 recommended                   │  │    │    │
+│  │  │  │                                                       │  │    │    │
+│  │  │  └───────────────────────────────────────────────────────┘  │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │                                                                      │    │
+│  │  PREVIEW:                                                            │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │ ┌───────────────────────────────────────────────────────┐   │    │    │
+│  │  │ │                                                       │   │    │    │
+│  │  │ │                    OG IMAGE                           │   │    │    │
+│  │  │ │                                                       │   │    │    │
+│  │  │ └───────────────────────────────────────────────────────┘   │    │    │
+│  │  │ nextmedya.com                                               │    │    │
+│  │  │ Dijital Ajans Hizmetleri                                    │    │    │
+│  │  │ Profesyonel dijital ajans hizmetleri...                     │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │                                                                      │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+4.3 Schema Tab
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  ┌─ SCHEMA TAB ────────────────────────────────────────────────────────┐    │
+│  │                                                                      │    │
+│  │  Schema Type                                                         │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │ WebPage                                                   ▼ │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │                                                                      │    │
+│  │  Available Types:                                                    │    │
+│  │  • WebPage (default)                                                │    │
+│  │  • Article                                                          │    │
+│  │  • BlogPosting                                                      │    │
+│  │  • FAQPage                                                          │    │
+│  │  • Product                                                          │    │
+│  │  • Service                                                          │    │
+│  │  • LocalBusiness                                                    │    │
+│  │  • Organization                                                     │    │
+│  │  • HowTo                                                            │    │
+│  │  • Recipe                                                           │    │
+│  │  • Event                                                            │    │
+│  │                                                                      │    │
+│  │  ═══════════════════════════════════════════════════════════════    │    │
+│  │                                                                      │    │
+│  │  [x] Auto-generate schema from content                              │    │
+│  │                                                                      │    │
+│  │  OR                                                                  │    │
+│  │                                                                      │    │
+│  │  Custom Schema (JSON-LD)                                             │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │ {                                                           │    │    │
+│  │  │   "@context": "https://schema.org",                         │    │    │
+│  │  │   "@type": "WebPage",                                       │    │    │
+│  │  │   "name": "Dijital Ajans Hizmetleri",                       │    │    │
+│  │  │   "description": "..."                                      │    │    │
+│  │  │ }                                                           │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │                                                                      │    │
+│  │  [Validate Schema] [Preview in Rich Results Test]                   │    │
+│  │                                                                      │    │
+│  │  ─────────────────────────────────────────────────────────────────  │    │
+│  │                                                                      │    │
+│  │  FAQ Schema (if FAQPage selected)                   [+ Add FAQ]     │    │
+│  │  ┌───────────────────────────────────────────────────────────────┐  │    │
+│  │  │ Q: Web tasarım hizmetiniz neler içeriyor?            [🗑️]     │  │    │
+│  │  │ A: Modern ve responsive web siteleri tasarlıyoruz...          │  │    │
+│  │  ├───────────────────────────────────────────────────────────────┤  │    │
+│  │  │ Q: SEO hizmeti ne kadar sürer?                       [🗑️]     │  │    │
+│  │  │ A: SEO sonuçları genellikle 3-6 ay içinde...                  │  │    │
+│  │  └───────────────────────────────────────────────────────────────┘  │    │
+│  │                                                                      │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+4.4 Advanced Tab
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  ┌─ ADVANCED TAB ──────────────────────────────────────────────────────┐    │
+│  │                                                                      │    │
+│  │  Robots Meta                                                         │    │
+│  │  ┌───────────────────────────────────────────────────────────────┐  │    │
+│  │  │ [x] Index this page    [x] Follow links                       │  │    │
+│  │  │ [ ] No Archive         [ ] No Snippet                         │  │    │
+│  │  │ [ ] No Image Index                                            │  │    │
+│  │  └───────────────────────────────────────────────────────────────┘  │    │
+│  │                                                                      │    │
+│  │  Max Snippet                                                         │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │ -1 (No limit)                                             ▼ │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │                                                                      │    │
+│  │  Max Image Preview                                                   │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │ large                                                     ▼ │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │                                                                      │    │
+│  │  ═══════════════════════════════════════════════════════════════    │    │
+│  │                                                                      │    │
+│  │  Canonical URL                                                       │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │ https://nextmedya.com/hizmetlerimiz                         │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │  [ ] Use default (current URL)                                      │    │
+│  │                                                                      │    │
+│  │  ═══════════════════════════════════════════════════════════════    │    │
+│  │                                                                      │    │
+│  │  Redirect                                                            │    │
+│  │  [ ] Enable redirect for this page                                  │    │
+│  │                                                                      │    │
+│  │  Redirect URL                                                        │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │                                                             │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │                                                                      │    │
+│  │  Redirect Type                                                       │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │ 301 - Permanent                                           ▼ │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │                                                                      │    │
+│  │  ═══════════════════════════════════════════════════════════════    │    │
+│  │                                                                      │    │
+│  │  Breadcrumb Title                                                    │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │ Hizmetlerimiz                                               │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  │  ℹ️ Short title for breadcrumb navigation                           │    │
+│  │                                                                      │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+5. Analytics & Tracking Admin UI
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    ANALYTICS & TRACKING ADMIN                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Settings > Analytics & Tracking                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  [Integrations] [Verification Tags] [Custom Scripts]                 │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  ═══════════════════════════════════════════════════════════════════════    │
+│                                                                              │
+│  INTEGRATIONS                                               [+ Add New]     │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  ┌─────┐                                                            │    │
+│  │  │ 📊  │  Google Analytics 4                              ●ON      │    │
+│  │  │     │  G-XXXXXXXXXX                                             │    │
+│  │  └─────┘  Environment: Production                                   │    │
+│  │           ┌────────────────────────────────────────────────────┐   │    │
+│  │           │ [Edit] [Test Connection] [Disable]                 │   │    │
+│  │           └────────────────────────────────────────────────────┘   │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  ┌─────┐                                                            │    │
+│  │  │ 📦  │  Google Tag Manager                              ●ON      │    │
+│  │  │     │  GTM-XXXXXXX                                              │    │
+│  │  └─────┘  Environment: All                                          │    │
+│  │           ┌────────────────────────────────────────────────────┐   │    │
+│  │           │ [Edit] [Test Connection] [Disable]                 │   │    │
+│  │           └────────────────────────────────────────────────────┘   │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  ┌─────┐                                                            │    │
+│  │  │ 📈  │  Yandex Metrica                                  ●ON      │    │
+│  │  │     │  12345678                                                 │    │
+│  │  └─────┘  Environment: Production                                   │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  ┌─────┐                                                            │    │
+│  │  │ 👤  │  Facebook Pixel                                  ○OFF     │    │
+│  │  │     │  Not configured                                           │    │
+│  │  └─────┘                                                            │    │
+│  │           ┌────────────────────────────────────────────────────┐   │    │
+│  │           │ [Configure]                                        │   │    │
+│  │           └────────────────────────────────────────────────────┘   │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  ═══════════════════════════════════════════════════════════════════════    │
+│                                                                              │
+│  VERIFICATION TAGS                                          [+ Add New]     │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  Platform              Meta Name                    Status          │    │
+│  │  ──────────────────────────────────────────────────────────────────│    │
+│  │  Google Search Console google-site-verification     ✅ Verified     │    │
+│  │  Bing Webmaster        msvalidate.01                ✅ Verified     │    │
+│  │  Yandex Webmaster      yandex-verification          ✅ Verified     │    │
+│  │  Pinterest             p:domain_verify              ⏳ Pending      │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  ═══════════════════════════════════════════════════════════════════════    │
+│                                                                              │
+│  CUSTOM SCRIPTS                                             [+ Add New]     │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  Name             Placement      Pages           Status             │    │
+│  │  ──────────────────────────────────────────────────────────────────│    │
+│  │  Chat Widget      Body End       All             ●ON                │    │
+│  │  Cookie Consent   Head           All             ●ON                │    │
+│  │  Promo Popup      Body End       Home only       ○OFF               │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+6. Site Settings Admin UI (Key-Value)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       SITE SETTINGS ADMIN                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Settings > Site Settings                                      [💾 Save All]│
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌──────────────────┐  ┌────────────────────────────────────────────────┐   │
+│  │                  │  │                                                │   │
+│  │  ⚙️ General      │  │  GENERAL SETTINGS                              │   │
+│  │                  │  │                                                │   │
+│  │  📞 Contact      │  │  ───────────────────────────────────────────── │   │
+│  │                  │  │                                                │   │
+│  │  🔗 Social       │  │  Site Name *                          [TR 🌐]  │   │
+│  │                  │  │  ┌────────────────────────────────────────┐   │   │
+│  │  📧 Mail         │  │  │ Next Medya                             │   │   │
+│  │                  │  │  └────────────────────────────────────────┘   │   │
+│  │  🎨 Appearance   │  │                                                │   │
+│  │                  │  │  Site Tagline                         [TR 🌐]  │   │
+│  │  🔒 Security     │  │  ┌────────────────────────────────────────┐   │   │
+│  │                  │  │  │ Dijital Ajans & Yazılım Çözümleri     │   │   │
+│  │  🛠️ Maintenance  │  │  └────────────────────────────────────────┘   │   │
+│  │                  │  │                                                │   │
+│  │  📊 Performance  │  │  Logo                          [📁 Select Media]│   │
+│  │                  │  │  ┌────────────────────────────────────────┐   │   │
+│  │                  │  │  │  ┌──────────┐                          │   │   │
+│  │                  │  │  │  │  LOGO    │  logo.svg                │   │   │
+│  │                  │  │  │  │  Preview │  200x50 • 12KB           │   │   │
+│  │                  │  │  │  └──────────┘  [Remove]                │   │   │
+│  │                  │  │  └────────────────────────────────────────┘   │   │
+│  │                  │  │                                                │   │
+│  │                  │  │  Logo (Dark Mode)              [📁 Select Media]│   │
+│  │                  │  │  ┌────────────────────────────────────────┐   │   │
+│  │                  │  │  │  No image selected                     │   │   │
+│  │                  │  │  └────────────────────────────────────────┘   │   │
+│  │                  │  │                                                │   │
+│  │                  │  │  Favicon                       [📁 Select Media]│   │
+│  │                  │  │  ┌────────────────────────────────────────┐   │   │
+│  │                  │  │  │  ┌──────┐                              │   │   │
+│  │                  │  │  │  │ 🔷   │  favicon.ico                 │   │   │
+│  │                  │  │  │  └──────┘  32x32                       │   │   │
+│  │                  │  │  └────────────────────────────────────────┘   │   │
+│  │                  │  │                                                │   │
+│  │                  │  │  Timezone                                      │   │
+│  │                  │  │  ┌────────────────────────────────────────┐   │   │
+│  │                  │  │  │ Europe/Istanbul                      ▼ │   │   │
+│  │                  │  │  └────────────────────────────────────────┘   │   │
+│  │                  │  │                                                │   │
+│  │                  │  │  Date Format                                   │   │
+│  │                  │  │  ┌────────────────────────────────────────┐   │   │
+│  │                  │  │  │ d.m.Y                                 ▼ │   │   │
+│  │                  │  │  └────────────────────────────────────────┘   │   │
+│  │                  │  │                                                │   │
+│  └──────────────────┘  └────────────────────────────────────────────────┘   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+6.1 Contact Settings Panel
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  CONTACT SETTINGS                                                            │
+│                                                                              │
+│  ───────────────────────────────────────────────────────────────────────    │
+│                                                                              │
+│  Primary Email *                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ info@nextmedya.com                                                   │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  Phone Number                                                                │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ +90 555 123 45 67                                                    │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  WhatsApp Number                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ 905551234567                                                         │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│  ℹ️ Without + or spaces (e.g., 905551234567)                                │
+│                                                                              │
+│  Address                                                           [TR 🌐]  │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ Merkez Mah. Abide-i Hürriyet Cad. No:123/5                          │    │
+│  │ Şişli, İstanbul 34381                                               │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  Google Maps Embed URL                                                       │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ https://www.google.com/maps/embed?pb=!1m18...                       │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  Working Hours                                                               │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  Day          Open    Close    Closed                               │    │
+│  │  ─────────────────────────────────────                              │    │
+│  │  Monday       09:00   18:00    [ ]                                  │    │
+│  │  Tuesday      09:00   18:00    [ ]                                  │    │
+│  │  Wednesday    09:00   18:00    [ ]                                  │    │
+│  │  Thursday     09:00   18:00    [ ]                                  │    │
+│  │  Friday       09:00   18:00    [ ]                                  │    │
+│  │  Saturday     10:00   14:00    [ ]                                  │    │
+│  │  Sunday       --:--   --:--    [x]                                  │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+7. reCAPTCHA Settings Admin UI
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      RECAPTCHA SETTINGS ADMIN                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Settings > Security > reCAPTCHA                               [💾 Save]    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  reCAPTCHA Status                                       [●━━━━ ON]  │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  ═══════════════════════════════════════════════════════════════════════    │
+│                                                                              │
+│  Version                                                                     │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ ○ reCAPTCHA v2 (Checkbox)   - "I'm not a robot" checkbox            │    │
+│  │ ○ reCAPTCHA v2 (Invisible)  - Invisible badge                       │    │
+│  │ ● reCAPTCHA v3              - Score-based (recommended)             │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  ═══════════════════════════════════════════════════════════════════════    │
+│                                                                              │
+│  API Keys                                            [🔗 Get keys from Google]│
+│                                                                              │
+│  Site Key *                                                                  │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ 6LcXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                                   │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  Secret Key *                                                                │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ ●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●                          [👁️]     │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  ═══════════════════════════════════════════════════════════════════════    │
+│                                                                              │
+│  v3 Settings (Score-based)                                                   │
+│                                                                              │
+│  Minimum Score Threshold                                                     │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │         0.0 ─────────●───────────── 1.0                             │    │
+│  │                     0.5                                              │    │
+│  │                                                                      │    │
+│  │  0.0 = Allow all    0.5 = Balanced    1.0 = Block most              │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│  ℹ️ Lower scores indicate higher bot probability                            │
+│                                                                              │
+│  ═══════════════════════════════════════════════════════════════════════    │
+│                                                                              │
+│  Enable reCAPTCHA on:                                                        │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  [x] Contact Form                                                    │    │
+│  │  [x] Login Form                                                      │    │
+│  │  [x] Registration Form                                               │    │
+│  │  [x] Comment Form                                                    │    │
+│  │  [ ] Newsletter Form                                                 │    │
+│  │  [ ] Password Reset Form                                             │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  ═══════════════════════════════════════════════════════════════════════    │
+│                                                                              │
+│  [🧪 Test reCAPTCHA]                                                        │
+│                                                                              │
+│  Test Result:                                                                │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  ✅ reCAPTCHA is working correctly                                   │    │
+│  │  Score: 0.9 (Likely human)                                          │    │
+│  │  Action: test_verification                                          │    │
+│  │  Timestamp: 2024-12-01 15:30:22                                     │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+8. Güncellenmiş Dizin Yapısı (Ek Modüller)
+app/
+├── ...existing structure...
+│
+├── Services/
+│   ├── ...existing...
+│   │
+│   ├── Seo/
+│   │   ├── SeoService.php              # Ana SEO service
+│   │   ├── SeoAnalyzer.php             # İçerik analizi
+│   │   ├── SchemaGenerator.php         # Schema.org JSON-LD üretimi
+│   │   ├── SitemapGenerator.php        # Sitemap XML üretimi
+│   │   └── MetaTagRenderer.php         # Meta tag render
+│   │
+│   ├── Security/
+│   │   ├── RecaptchaService.php        # reCAPTCHA doğrulama
+│   │   └── RecaptchaValidator.php      # Form validation rule
+│   │
+│   ├── Analytics/
+│   │   ├── TrackingService.php         # Tracking script yönetimi
+│   │   └── ScriptRenderer.php          # Script render (head/body)
+│   │
+│   └── Settings/
+│       ├── SettingsService.php         # Key-value settings CRUD
+│       └── SettingsCache.php           # Settings cache layer
+│
+├── Http/
+│   ├── Controllers/
+│   │   ├── Admin/
+│   │   │   ├── ...existing...
+│   │   │   ├── SeoSettingsController.php
+│   │   │   ├── RecaptchaSettingsController.php
+│   │   │   ├── AnalyticsController.php
+│   │   │   ├── SettingsController.php
+│   │   │   └── PageBuilderController.php  # Drag-drop API
+│   │   │
+│   │   └── Api/
+│   │       └── PageBuilderApiController.php  # AJAX endpoints
+│   │
+│   └── Requests/
+│       ├── Admin/
+│       │   ├── UpdateSeoRequest.php
+│       │   ├── UpdateRecaptchaRequest.php
+│       │   └── UpdateSettingsRequest.php
+│       └── ...
+│
+├── Rules/
+│   └── Recaptcha.php                   # Custom validation rule
+│
+└── View/
+    └── Components/
+        ├── Admin/
+        │   ├── SeoEditor.php           # SEO panel component
+        │   ├── PageBuilder.php         # Drag-drop builder
+        │   ├── SectionCard.php         # Draggable section card
+        │   ├── SectionItem.php         # Page structure item
+        │   └── SettingsField.php       # Dynamic settings field
+        │
+        └── Frontend/
+            ├── Recaptcha.php           # reCAPTCHA widget
+            ├── MetaTags.php            # SEO meta tags
+            └── TrackingScripts.php     # Analytics scripts
+
+config/
+├── ...existing...
+├── seo.php                             # SEO ayarları
+├── recaptcha.php                       # reCAPTCHA ayarları
+└── tracking.php                        # Analytics ayarları
+
+resources/views/
+├── admin/
+│   ├── ...existing...
+│   │
+│   ├── page-builder/
+│   │   ├── index.blade.php             # Main builder page
+│   │   ├── partials/
+│   │   │   ├── _section-card.blade.php
+│   │   │   ├── _section-item.blade.php
+│   │   │   └── _section-editor-modal.blade.php
+│   │   └── components/
+│   │       └── ...field components...
+│   │
+│   ├── seo/
+│   │   ├── settings.blade.php          # Global SEO settings
+│   │   ├── redirects.blade.php         # Redirect manager
+│   │   └── partials/
+│   │       ├── _seo-editor.blade.php   # Reusable SEO panel
+│   │       ├── _seo-analysis.blade.php
+│   │       ├── _social-preview.blade.php
+│   │       └── _schema-editor.blade.php
+│   │
+│   ├── analytics/
+│   │   ├── index.blade.php
+│   │   └── partials/
+│   │       ├── _integration-card.blade.php
+│   │       └── _script-editor.blade.php
+│   │
+│   ├── security/
+│   │   └── recaptcha.blade.php
+│   │
+│   └── settings/
+│       ├── index.blade.php             # Grouped settings
+│       └── partials/
+│           └── _settings-field.blade.php
+│
+└── frontend/
+    └── partials/
+        ├── _seo-meta.blade.php         # All SEO meta tags
+        ├── _schema.blade.php           # JSON-LD schema
+        ├── _tracking-head.blade.php    # Head scripts
+        ├── _tracking-body-start.blade.php
+        └── _tracking-body-end.blade.php
+
+database/migrations/
+├── ...existing...
+├── 2024_01_01_000020_create_seo_settings_table.php
+├── 2024_01_01_000021_create_seo_templates_table.php
+├── 2024_01_01_000022_create_seo_meta_table.php
+├── 2024_01_01_000023_create_seo_redirects_table.php
+├── 2024_01_01_000024_create_seo_analysis_rules_table.php
+├── 2024_01_01_000025_create_recaptcha_settings_table.php
+├── 2024_01_01_000026_create_form_submissions_table.php
+├── 2024_01_01_000027_create_tracking_integrations_table.php
+├── 2024_01_01_000028_create_verification_meta_tags_table.php
+├── 2024_01_01_000029_create_custom_scripts_table.php
+├── 2024_01_01_000030_create_settings_groups_table.php
+├── 2024_01_01_000031_create_settings_table.php
+├── 2024_01_01_000032_create_posts_table.php
+├── 2024_01_01_000033_create_categories_table.php
+└── 2024_01_01_000034_create_tags_table.php
+
+9. Section Table Güncellemesi
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    GÜNCELLENEN PAGE_SECTIONS TABLE                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────┐
+│      page_sections          │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ uuid                        │──────► Unique identifier (for copy)
+│ page_id (FK)                │
+│ section_key                 │──────► 'hero-banner-digital'
+│ content (JSON)              │──────► All section data
+│ order                       │──────► Display order (drag-drop)
+│ is_active                   │──────► ON/OFF toggle
+│ copied_from_id (FK→self)    │──────► NULL or source section id
+│ visibility_rules (JSON)     │──────► Schedule, device targeting
+│ custom_css                  │──────► Section-specific CSS
+│ custom_class                │──────► Additional CSS classes
+│ created_by (FK→users)       │
+│ updated_by (FK→users)       │
+│ timestamps                  │
+└─────────────────────────────┘
+
+10. API Endpoints (Page Builder AJAX)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    PAGE BUILDER API ENDPOINTS                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Section Management:
+─────────────────────────────────────────────────────────────────────────────
+POST   /admin/api/pages/{page}/sections              → Add section to page
+GET    /admin/api/pages/{page}/sections              → Get all sections
+PUT    /admin/api/pages/{page}/sections/reorder      → Update order (drag-drop)
+GET    /admin/api/sections/{section}                 → Get section data
+PUT    /admin/api/sections/{section}                 → Update section content
+DELETE /admin/api/sections/{section}                 → Delete section
+POST   /admin/api/sections/{section}/copy            → Copy/duplicate section
+PUT    /admin/api/sections/{section}/toggle          → Toggle active status
+
+Section Templates:
+─────────────────────────────────────────────────────────────────────────────
+GET    /admin/api/section-templates                  → List all available
+GET    /admin/api/section-templates/{key}            → Get template schema
+GET    /admin/api/section-templates/categories       → Get categories
+
+Media (for section editor):
+─────────────────────────────────────────────────────────────────────────────
+GET    /admin/api/media                              → Browse media
+POST   /admin/api/media/upload                       → Quick upload
+
+SEO Analysis:
+─────────────────────────────────────────────────────────────────────────────
+POST   /admin/api/seo/analyze                        → Run SEO analysis
+POST   /admin/api/seo/schema/validate                → Validate schema
+POST   /admin/api/seo/schema/generate                → Auto-generate schema
+
+Settings:
+─────────────────────────────────────────────────────────────────────────────
+GET    /admin/api/settings/{group}                   → Get settings by group
+PUT    /admin/api/settings/{group}                   → Update settings group
+POST   /admin/api/settings/cache/clear               → Clear settings cache
+
+11. Özet: Tüm Modüller İlişki Şeması
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       TÜM MODÜLLER İLİŞKİ ŞEMASI                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                         ┌─────────────────────┐
+                         │      LANGUAGES      │
+                         │    (tr, en, de)     │
+                         └──────────┬──────────┘
+                                    │
+        ┌───────────────────────────┼───────────────────────────┐
+        │                           │                           │
+        ▼                           ▼                           ▼
+┌───────────────┐         ┌─────────────────┐         ┌─────────────────┐
+│     PAGES     │         │      POSTS      │         │    SETTINGS     │
+│               │         │                 │         │   (Key-Value)   │
+│  title(JSON)  │         │   title(JSON)   │         │   value(JSON)   │
+└───────┬───────┘         └────────┬────────┘         └─────────────────┘
+        │                          │
+        │                          │
+        ▼                          ▼
+┌───────────────┐         ┌─────────────────┐
+│   SECTIONS    │         │    SEO META     │◄─────── Polymorphic
+│               │         │  (Per Content)  │         (Page, Post, Category)
+│ content(JSON) │         │                 │
+│ order         │         │ seo_title(JSON) │
+│ is_active     │         │ schema_data     │
+│ copied_from   │         │ og_image        │
+└───────┬───────┘         └─────────────────┘
+        │
+        │ references
+        ▼
+┌───────────────┐         ┌─────────────────┐
+│     MEDIA     │         │   RECAPTCHA     │
+│               │         │    SETTINGS     │
+│  variants     │         │                 │
+│  webp_path    │         │  site_key       │
+└───────────────┘         │  secret_key     │
+                          │  version        │
+                          └─────────────────┘
+
+┌───────────────┐         ┌─────────────────┐
+│    MENUS      │         │   TRACKING      │
+│               │         │ INTEGRATIONS    │
+│  name(JSON)   │         │                 │
+│  location     │         │  GA4, GTM       │
+└───────────────┘         │  Yandex, FB     │
+                          └─────────────────┘
+
+┌───────────────┐
+│  REDIRECTS    │
+│               │
+│  source_url   │DContinue│  target_url   │
+│  301/302      │
+└───────────────┘
+
+---
+
+Bu güncellenmiş mimari ile:
+
+1. **reCAPTCHA v2/v3**: Admin'den yönetilebilir, form bazlı enable/disable
+2. **SEO Manager**: AIO SEO/Rank Math benzeri, schema üretimi, analiz, redirect
+3. **Blog SEO**: Post'lar için aynı SEO paneli (polymorphic seo_meta)
+4. **Analytics Integration**: GA4, GTM, Yandex, FB Pixel, vs. - Admin'den yönetim
+5. **Page Builder**: Drag-drop, section copy, order, status toggle
+6. **Settings (Key-Value)**: Gruplu, çevrilebilir, farklı field type'ları
+
+Hangi bölümün daha detaylı açıklanmasını istersin?Dadmin paneli tarafında filament kullacağız, ve ek olarak sence başka eksiklikler varmı sisteme eklesek iyi molur dediğin sonrasında bana en başından nasıl kurulum yaparım bunu verirmisin finalde dosya/klasör yapısının oluşturulması için gerekli terminal script kodunuda verirmisinFilament Admin + Eksik Modüller + Kurulum Rehberi
+1. Eksik Modüller ve Öneriler
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    ÖNERİLEN EK MODÜLLER                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│  1. FORM BUILDER (Dinamik Form Oluşturucu)                                  │
+│  ────────────────────────────────────────────────────────────────────────── │
+│  • Sürükle-bırak form alanları                                              │
+│  • Form submission yönetimi                                                  │
+│  • Email notification ayarları                                               │
+│  • CSV/Excel export                                                          │
+│  • Spam koruması (reCAPTCHA entegrasyonu)                                   │
+│  • Conditional fields (koşullu alanlar)                                      │
+│                                                                              │
+│  2. NEWSLETTER / EMAIL MARKETING                                             │
+│  ────────────────────────────────────────────────────────────────────────── │
+│  • Subscriber list yönetimi                                                  │
+│  • Email template builder                                                    │
+│  • Campaign yönetimi                                                         │
+│  • Mailchimp, Sendinblue, Mailjet entegrasyonu                              │
+│  • Double opt-in desteği                                                     │
+│  • Unsubscribe yönetimi                                                      │
+│                                                                              │
+│  3. POPUP / MODAL BUILDER                                                    │
+│  ────────────────────────────────────────────────────────────────────────── │
+│  • Exit intent popup                                                         │
+│  • Timed popup                                                               │
+│  • Scroll trigger popup                                                      │
+│  • Cookie-based display rules                                                │
+│  • A/B testing                                                               │
+│                                                                              │
+│  4. BACKUP & RESTORE                                                         │
+│  ────────────────────────────────────────────────────────────────────────── │
+│  • Otomatik DB backup                                                        │
+│  • Media backup (S3, Google Drive)                                           │
+│  • Scheduled backups                                                         │
+│  • One-click restore                                                         │
+│  • Backup rotation (eski backup'ları sil)                                   │
+│                                                                              │
+│  5. ACTIVITY LOG / AUDIT TRAIL                                               │
+│  ────────────────────────────────────────────────────────────────────────── │
+│  • Tüm admin işlemlerinin kaydı                                             │
+│  • Kullanıcı bazlı aktivite takibi                                          │
+│  • IP adresi loglama                                                         │
+│  • Değişiklik geçmişi (revisions)                                           │
+│  • Filtreleme ve arama                                                       │
+│                                                                              │
+│  6. USER & ROLE MANAGEMENT (Gelişmiş)                                        │
+│  ────────────────────────────────────────────────────────────────────────── │
+│  • Spatie Permission entegrasyonu                                            │
+│  • Özel roller oluşturma                                                     │
+│  • Modül bazlı izinler                                                       │
+│  • 2FA (Two-Factor Authentication)                                           │
+│  • Login history                                                             │
+│                                                                              │
+│  7. CACHE MANAGER                                                            │
+│  ────────────────────────────────────────────────────────────────────────── │
+│  • Admin'den cache temizleme                                                 │
+│  • Selective cache clear (page, menu, settings)                              │
+│  • Cache warmup                                                              │
+│  • Cache statistics                                                          │
+│                                                                              │
+│  8. FILE MANAGER (Gelişmiş Media)                                            │
+│  ────────────────────────────────────────────────────────────────────────── │
+│  • Klasör yapısı yönetimi                                                    │
+│  • Bulk upload                                                               │
+│  • Image editor (crop, resize, rotate)                                       │
+│  • Video thumbnail extraction                                                │
+│  • PDF preview                                                               │
+│  • Usage tracking (hangi dosya nerede kullanılıyor)                         │
+│                                                                              │
+│  9. IMPORT / EXPORT                                                          │
+│  ────────────────────────────────────────────────────────────────────────── │
+│  • WordPress import                                                          │
+│  • CSV/JSON import-export                                                    │
+│  • Content migration tools                                                   │
+│                                                                              │
+│  10. PERFORMANCE MONITORING                                                  │
+│  ────────────────────────────────────────────────────────────────────────── │
+│  • Page load time tracking                                                   │
+│  • Database query monitoring                                                 │
+│  • Error logging dashboard                                                   │
+│  • Uptime monitoring                                                         │
+│                                                                              │
+│  11. COMMENTS SYSTEM                                                         │
+│  ────────────────────────────────────────────────────────────────────────── │
+│  • Blog yorumları                                                            │
+│  • Moderasyon paneli                                                         │
+│  • Spam filtering                                                            │
+│  • Nested comments                                                           │
+│  • Email notifications                                                       │
+│                                                                              │
+│  12. RELATED CONTENT / INTERNAL LINKING                                      │
+│  ────────────────────────────────────────────────────────────────────────── │
+│  • Otomatik ilişkili içerik önerisi                                         │
+│  • Manual linking                                                            │
+│  • Orphan content detection (linklenmemiş sayfalar)                         │
+│                                                                              │
+│  13. SCHEDULED CONTENT                                                       │
+│  ────────────────────────────────────────────────────────────────────────── │
+│  • İleri tarihli yayın                                                       │
+│  • Content expiry (otomatik unpublish)                                       │
+│  • Seasonal content rules                                                    │
+│                                                                              │
+│  14. MULTI-SITE SUPPORT (Opsiyonel - İleri Seviye)                          │
+│  ────────────────────────────────────────────────────────────────────────── │
+│  • Tek kurulumdan birden fazla site                                         │
+│  • Shared media library                                                      │
+│  • Site-specific settings                                                    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+2. Güncellenmiş Tam Veritabanı Şeması
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    COMPLETE DATABASE SCHEMA                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+                              CORE TABLES
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────┐       ┌─────────────────────────────┐
+│         languages           │       │          users              │
+├─────────────────────────────┤       ├─────────────────────────────┤
+│ id (PK)                     │       │ id (PK)                     │
+│ code (unique)               │       │ name                        │
+│ name                        │       │ email (unique)              │
+│ native_name                 │       │ password                    │
+│ flag                        │       │ avatar                      │
+│ direction (ltr/rtl)         │       │ two_factor_secret           │
+│ is_default                  │       │ two_factor_confirmed_at     │
+│ is_active                   │       │ email_verified_at           │
+│ order                       │       │ is_active                   │
+│ timestamps                  │       │ last_login_at               │
+└─────────────────────────────┘       │ last_login_ip               │
+                                      │ timestamps                  │
+                                      │ deleted_at                  │
+                                      └─────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+                              PAGE SYSTEM
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────┐
+│           pages             │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ uuid                        │
+│ parent_id (FK→self)         │──────► Hierarchical pages
+│ slug (unique per locale)    │
+│ template                    │──────► 'default', 'landing', 'full-width'
+│ status                      │──────► enum: draft, published, scheduled, archived
+│ title (JSON)                │
+│ excerpt (JSON)              │
+│ featured_image_id (FK)      │
+│ published_at                │
+│ scheduled_at                │
+│ expired_at                  │──────► Auto unpublish
+│ password                    │──────► Password protected
+│ view_count                  │
+│ order                       │
+│ created_by (FK→users)       │
+│ updated_by (FK→users)       │
+│ timestamps                  │
+│ deleted_at                  │
+└───────────┬─────────────────┘
+            │
+            │ 1:N
+            ▼
+┌─────────────────────────────┐
+│       page_sections         │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ uuid                        │
+│ page_id (FK)                │
+│ section_key                 │
+│ content (JSON)              │
+│ order                       │
+│ is_active                   │
+│ copied_from_id (FK→self)    │
+│ visibility (JSON)           │──────► {devices, schedule, user_roles}
+│ custom_css                  │
+│ custom_class                │
+│ cache_ttl                   │──────► Section-level cache
+│ created_by (FK→users)       │
+│ updated_by (FK→users)       │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│     section_templates       │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ key (unique)                │
+│ name (JSON)                 │
+│ description (JSON)          │
+│ category                    │
+│ icon                        │
+│ preview_image               │
+│ view_path                   │
+│ fields_schema (JSON)        │
+│ data_handler                │
+│ default_content (JSON)      │
+│ is_active                   │
+│ is_premium                  │──────► Pro sections
+│ order                       │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│     page_revisions          │──────► Content versioning
+├─────────────────────────────┤
+│ id (PK)                     │
+│ page_id (FK)                │
+│ revision_number             │
+│ title (JSON)                │
+│ sections_snapshot (JSON)    │
+│ created_by (FK→users)       │
+│ created_at                  │
+└─────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+                              BLOG SYSTEM
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────┐
+│           posts             │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ uuid                        │
+│ slug                        │
+│ title (JSON)                │
+│ excerpt (JSON)              │
+│ content (JSON)              │──────► Rich text editor content
+│ featured_image_id (FK)      │
+│ status                      │
+│ type                        │──────► 'post', 'news', 'announcement'
+│ visibility                  │──────► 'public', 'private', 'password'
+│ password                    │
+│ author_id (FK→users)        │
+│ published_at                │
+│ scheduled_at                │
+│ expired_at                  │
+│ reading_time                │
+│ view_count                  │
+│ is_featured                 │
+│ is_sticky                   │
+│ allow_comments              │
+│ created_by (FK→users)       │
+│ updated_by (FK→users)       │
+│ timestamps                  │
+│ deleted_at                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│        categories           │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ parent_id (FK→self)         │
+│ slug                        │
+│ name (JSON)                 │
+│ description (JSON)          │
+│ image_id (FK→media)         │
+│ color                       │
+│ icon                        │
+│ order                       │
+│ is_active                   │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│           tags              │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ slug                        │
+│ name (JSON)                 │
+│ description (JSON)          │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│      post_category          │ (Pivot)
+├─────────────────────────────┤
+│ post_id (FK)                │
+│ category_id (FK)            │
+│ is_primary                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│        post_tag             │ (Pivot)
+├─────────────────────────────┤
+│ post_id (FK)                │
+│ tag_id (FK)                 │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│         comments            │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ commentable_type            │──────► Polymorphic
+│ commentable_id              │
+│ parent_id (FK→self)         │──────► Nested comments
+│ user_id (FK→users)          │──────► Null for guests
+│ author_name                 │
+│ author_email                │
+│ author_url                  │
+│ author_ip                   │
+│ content                     │
+│ status                      │──────► 'pending', 'approved', 'spam', 'trash'
+│ is_pinned                   │
+│ likes_count                 │
+│ timestamps                  │
+│ deleted_at                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│      related_posts          │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ post_id (FK)                │
+│ related_post_id (FK)        │
+│ relation_type               │──────► 'auto', 'manual'
+│ score                       │──────► Relevance score
+│ order                       │
+└─────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+                              MEDIA SYSTEM
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────┐
+│     storage_profiles        │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ name                        │
+│ driver                      │──────► 'local', 's3', 'r2', 'bunny', 'spaces'
+│ config (JSON)               │──────► Encrypted credentials
+│ is_default                  │
+│ is_active                   │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│      media_folders          │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ parent_id (FK→self)         │
+│ name                        │
+│ slug                        │
+│ path                        │
+│ color                       │
+│ is_system                   │──────► Protected folders
+│ created_by (FK→users)       │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│          media              │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ uuid                        │
+│ storage_profile_id (FK)     │
+│ folder_id (FK)              │
+│ filename                    │
+│ original_filename           │
+│ path                        │
+│ disk                        │
+│ extension                   │
+│ mime_type                   │
+│ type                        │──────► 'image', 'video', 'audio', 'document', 'archive'
+│ size_bytes                  │
+│ width                       │
+│ height                      │
+│ duration                    │──────► Video/audio duration
+│ checksum_sha256             │
+│ title (JSON)                │
+│ alt (JSON)                  │
+│ caption (JSON)              │
+│ description (JSON)          │
+│ dominant_color              │
+│ focal_point (JSON)          │──────► {x: 50, y: 50} for smart crop
+│ exif_data (JSON)            │
+│ is_private                  │
+│ download_count              │
+│ created_by (FK→users)       │
+│ updated_by (FK→users)       │
+│ timestamps                  │
+│ deleted_at                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│    media_conversions        │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ media_id (FK)               │
+│ conversion_name             │──────► 'thumb', 'medium', 'large', 'webp'
+│ path                        │
+│ disk                        │
+│ filename                    │
+│ width                       │
+│ height                      │
+│ size_bytes                  │
+│ format                      │
+│ quality                     │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│      media_usages           │──────► Track where media is used
+├─────────────────────────────┤
+│ id (PK)                     │
+│ media_id (FK)               │
+│ usable_type                 │──────► Polymorphic
+│ usable_id                   │
+│ field_name                  │──────► 'featured_image', 'gallery', etc.
+│ timestamps                  │
+└─────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+                              MENU SYSTEM
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────┐
+│          menus              │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ name (JSON)                 │
+│ slug (unique)               │
+│ location                    │
+│ description                 │
+│ max_depth                   │
+│ is_active                   │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│       menu_items            │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ menu_id (FK)                │
+│ parent_id (FK→self)         │
+│ title (JSON)                │
+│ type                        │──────► 'page', 'post', 'category', 'url', 'route'
+│ linkable_type               │──────► Polymorphic
+│ linkable_id                 │
+│ url                         │
+│ route_name                  │
+│ route_params (JSON)         │
+│ target                      │──────► '_self', '_blank'
+│ rel                         │──────► 'nofollow', 'sponsored'
+│ icon                        │
+│ image_id (FK→media)         │
+│ css_class                   │
+│ is_mega_menu                │
+│ mega_columns                │
+│ mega_content (JSON)         │
+│ highlight_type              │──────► 'new', 'hot', 'sale'
+│ highlight_text (JSON)       │
+│ order                       │
+│ is_active                   │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│     menu_locations          │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ key                         │──────► 'primary', 'footer', 'mobile'
+│ name (JSON)                 │
+│ description (JSON)          │
+│ menu_id (FK→menus)          │
+│ timestamps                  │
+└─────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+                              SEO SYSTEM
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────┐
+│      seo_settings           │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ site_title (JSON)           │
+│ title_separator             │
+│ meta_description (JSON)     │
+│ default_og_image_id (FK)    │
+│ twitter_card_type           │
+│ twitter_site                │
+│ schema_organization (JSON)  │
+│ schema_website (JSON)       │
+│ schema_local_business (JSON)│
+│ robots_txt                  │
+│ enable_sitemap              │
+│ sitemap_frequency           │
+│ sitemap_priority            │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│      seo_templates          │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ type                        │──────► 'page', 'post', 'category', 'tag', 'author'
+│ title_template (JSON)       │
+│ description_template (JSON) │
+│ schema_type                 │
+│ default_robots              │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│        seo_meta             │──────► Polymorphic SEO data
+├─────────────────────────────┤
+│ id (PK)                     │
+│ seoable_type                │
+│ seoable_id                  │
+│ ─────────────────────────── │
+│ seo_title (JSON)            │
+│ meta_description (JSON)     │
+│ focus_keyword (JSON)        │
+│ secondary_keywords (JSON)   │
+│ canonical_url               │
+│ ─────────────────────────── │
+│ robots_index                │
+│ robots_follow               │
+│ robots_advanced (JSON)      │
+│ ─────────────────────────── │
+│ og_title (JSON)             │
+│ og_description (JSON)       │
+│ og_image_id (FK→media)      │
+│ og_type                     │
+│ ─────────────────────────── │
+│ twitter_title (JSON)        │
+│ twitter_description (JSON)  │
+│ twitter_image_id (FK→media) │
+│ twitter_card_type           │
+│ ─────────────────────────── │
+│ schema_type                 │
+│ schema_data (JSON)          │
+│ auto_schema                 │
+│ manual_schema (JSON)        │
+│ ─────────────────────────── │
+│ breadcrumb_title (JSON)     │
+│ ─────────────────────────── │
+│ seo_score                   │
+│ readability_score           │
+│ analysis_data (JSON)        │
+│ last_analyzed_at            │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│      seo_redirects          │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ source_url                  │
+│ target_url                  │
+│ redirect_type               │──────► 301, 302, 307, 410
+│ match_type                  │──────► 'exact', 'regex', 'prefix'
+│ query_params                │──────► 'ignore', 'pass', 'exact'
+│ hit_count                   │
+│ last_hit_at                 │
+│ notes                       │
+│ is_active                   │
+│ created_by (FK→users)       │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│    seo_broken_links         │──────► 404 tracking
+├─────────────────────────────┤
+│ id (PK)                     │
+│ url                         │
+│ referrer                    │
+│ user_agent                  │
+│ hit_count                   │
+│ first_hit_at                │
+│ last_hit_at                 │
+│ is_resolved                 │
+│ redirect_id (FK)            │
+│ timestamps                  │
+└─────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+                           FORM BUILDER SYSTEM
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────┐
+│          forms              │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ uuid                        │
+│ name (JSON)                 │
+│ slug (unique)               │
+│ description (JSON)          │
+│ fields_schema (JSON)        │──────► Form field definitions
+│ settings (JSON)             │──────► Validation, styling
+│ success_message (JSON)      │
+│ redirect_url                │
+│ ─────────────────────────── │
+│ enable_recaptcha            │
+│ recaptcha_version           │
+│ ─────────────────────────── │
+│ store_submissions           │
+│ submission_limit            │
+│ submission_limit_per        │──────► 'ip', 'session', 'none'
+│ ─────────────────────────── │
+│ notifications_enabled       │
+│ notification_emails (JSON)  │
+│ notification_template_id    │
+│ ─────────────────────────── │
+│ honeypot_enabled            │
+│ honeypot_field              │
+│ ─────────────────────────── │
+│ is_active                   │
+│ starts_at                   │
+│ expires_at                  │
+│ created_by (FK→users)       │
+│ timestamps                  │
+│ deleted_at                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│     form_submissions        │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ uuid                        │
+│ form_id (FK)                │
+│ data (JSON)                 │──────► Submitted data (encrypted)
+│ ip_address                  │
+│ user_agent                  │
+│ referrer                    │
+│ recaptcha_score             │
+│ is_spam                     │
+│ is_read                     │
+│ is_starred                  │
+│ notes                       │
+│ processed_by (FK→users)     │
+│ processed_at                │
+│ timestamps                  │
+└─────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+                         NEWSLETTER SYSTEM
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────┐
+│       subscribers           │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ uuid                        │
+│ email (unique)              │
+│ name                        │
+│ status                      │──────► 'pending', 'subscribed', 'unsubscribed'
+│ source                      │──────► 'form', 'import', 'api'
+│ ip_address                  │
+│ confirmed_at                │
+│ unsubscribed_at             │
+│ unsubscribe_reason          │
+│ metadata (JSON)             │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│    subscriber_lists         │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ name                        │
+│ description                 │
+│ is_default                  │
+│ is_active                   │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│  subscriber_list_pivot      │
+├─────────────────────────────┤
+│ subscriber_id (FK)          │
+│ list_id (FK)                │
+│ subscribed_at               │
+└─────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+                           POPUP SYSTEM
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────┐
+│          popups             │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ name                        │
+│ title (JSON)                │
+│ content (JSON)              │
+│ type                        │──────► 'modal', 'slide-in', 'bar', 'fullscreen'
+│ position                    │──────► 'center', 'bottom-right', 'top'
+│ template                    │
+│ ─────────────────────────── │
+│ trigger_type                │──────► 'time', 'scroll', 'exit', 'click', 'manual'
+│ trigger_value               │──────► seconds, percentage, selector
+│ ─────────────────────────── │
+│ display_frequency           │──────► 'always', 'once', 'session', 'days'
+│ frequency_value             │
+│ ─────────────────────────── │
+│ show_on_pages (JSON)        │
+│ exclude_pages (JSON)        │
+│ show_on_devices (JSON)      │
+│ ─────────────────────────── │
+│ starts_at                   │
+│ expires_at                  │
+│ ─────────────────────────── │
+│ view_count                  │
+│ conversion_count            │
+│ ─────────────────────────── │
+│ is_active                   │
+│ priority                    │
+│ created_by (FK→users)       │
+│ timestamps                  │
+│ deleted_at                  │
+└─────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+                        ANALYTICS & TRACKING
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────┐
+│  tracking_integrations      │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ platform                    │
+│ name                        │
+│ tracking_id                 │
+│ config (JSON)               │
+│ placement                   │
+│ is_active                   │
+│ environment (JSON)          │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│  verification_meta_tags     │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ platform                    │
+│ meta_name                   │
+│ meta_content                │
+│ is_active                   │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│      custom_scripts         │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ name                        │
+│ description                 │
+│ placement                   │
+│ script_content              │
+│ load_pages (JSON)           │
+│ exclude_pages (JSON)        │
+│ load_condition (JSON)       │
+│ priority                    │
+│ is_active                   │
+│ timestamps                  │
+└─────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+                         SECURITY & RECAPTCHA
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────┐
+│    recaptcha_settings       │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ version                     │
+│ site_key                    │
+│ secret_key (encrypted)      │
+│ v3_threshold                │
+│ badge_position              │
+│ enabled_forms (JSON)        │
+│ is_active                   │
+│ timestamps                  │
+└─────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+                           SETTINGS SYSTEM
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────┐
+│      settings_groups        │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ key (unique)                │
+│ name (JSON)                 │
+│ description (JSON)          │
+│ icon                        │
+│ order                       │
+│ is_active                   │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│         settings            │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ group_id (FK)               │
+│ key (unique)                │
+│ value (JSON)                │
+│ type                        │
+│ options (JSON)              │
+│ is_translatable             │
+│ is_encrypted                │
+│ validation_rules            │
+│ label (JSON)                │
+│ help_text (JSON)            │
+│ placeholder (JSON)          │
+│ order                       │
+│ is_active                   │
+│ timestamps                  │
+└─────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+                        LAYOUT COMPONENTS
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────┐
+│    layout_components        │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ type                        │──────► 'header', 'footer', 'sidebar'
+│ name                        │
+│ slug (unique)               │
+│ template                    │
+│ content (JSON)              │
+│ is_default                  │
+│ is_active                   │
+│ timestamps                  │
+└─────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+                         ACTIVITY LOG
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────┐
+│      activity_logs          │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ log_name                    │
+│ description                 │
+│ subject_type                │──────► Polymorphic
+│ subject_id                  │
+│ causer_type                 │
+│ causer_id                   │
+│ event                       │──────► 'created', 'updated', 'deleted'
+│ properties (JSON)           │──────► {old: {...}, attributes: {...}}
+│ batch_uuid                  │
+│ ip_address                  │
+│ user_agent                  │
+│ created_at                  │
+└─────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+                            BACKUPS
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────┐
+│          backups            │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ name                        │
+│ disk                        │
+│ path                        │
+│ size_bytes                  │
+│ type                        │──────► 'full', 'database', 'media'
+│ status                      │──────► 'pending', 'completed', 'failed'
+│ metadata (JSON)             │
+│ triggered_by                │──────► 'manual', 'scheduled'
+│ created_by (FK→users)       │
+│ completed_at                │
+│ timestamps                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│     backup_schedules        │
+├─────────────────────────────┤
+│ id (PK)                     │
+│ name                        │
+│ type                        │
+│ frequency                   │──────► 'daily', 'weekly', 'monthly'
+│ time                        │
+│ day_of_week                 │
+│ day_of_month                │
+│ retention_days              │
+│ disk                        │
+│ is_active                   │
+│ last_run_at                 │
+│ next_run_at                 │
+│ timestamps                  │
+└─────────────────────────────┘
+
+3. Filament Admin Panel Yapısı
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    FILAMENT ADMIN PANEL YAPISI                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+app/Filament/
+├── Resources/
+│   │
+│   ├── PageResource/
+│   │   ├── PageResource.php
+│   │   └── Pages/
+│   │       ├── ListPages.php
+│   │       ├── CreatePage.php
+│   │       ├── EditPage.php
+│   │       └── PageBuilder.php          # Custom page builder
+│   │
+│   ├── PageSectionResource/
+│   │   └── PageSectionResource.php      # Section templates
+│   │
+│   ├── PostResource/
+│   │   ├── PostResource.php
+│   │   └── Pages/
+│   │       ├── ListPosts.php
+│   │       ├── CreatePost.php
+│   │       └── EditPost.php
+│   │
+│   ├── CategoryResource/
+│   │   └── CategoryResource.php
+│   │
+│   ├── TagResource/
+│   │   └── TagResource.php
+│   │
+│   ├── CommentResource/
+│   │   └── CommentResource.php
+│   │
+│   ├── MediaResource/
+│   │   ├── MediaResource.php
+│   │   └── Pages/
+│   │       └── MediaLibrary.php         # Custom media browser
+│   │
+│   ├── MenuResource/
+│   │   ├── MenuResource.php
+│   │   └── Pages/
+│   │       └── MenuBuilder.php          # Drag-drop menu builder
+│   │
+│   ├── FormResource/
+│   │   ├── FormResource.php
+│   │   └── Pages/
+│   │       ├── FormBuilder.php
+│   │       └── FormSubmissions.php
+│   │
+│   ├── PopupResource/
+│   │   └── PopupResource.php
+│   │
+│   ├── SubscriberResource/
+│   │   └── SubscriberResource.php
+│   │
+│   ├── RedirectResource/
+│   │   └── RedirectResource.php
+│   │
+│   ├── UserResource/
+│   │   └── UserResource.php
+│   │
+│   └── ActivityLogResource/
+│       └── ActivityLogResource.php
+│
+├── Pages/
+│   ├── Dashboard.php
+│   ├── Settings/
+│   │   ├── GeneralSettings.php
+│   │   ├── ContactSettings.php
+│   │   ├── SocialSettings.php
+│   │   ├── MailSettings.php
+│   │   ├── AppearanceSettings.php
+│   │   └── MaintenanceSettings.php
+│   │
+│   ├── Seo/
+│   │   ├── SeoSettings.php
+│   │   ├── SeoTemplates.php
+│   │   └── SeoAnalysis.php
+│   │
+│   ├── Analytics/
+│   │   ├── TrackingIntegrations.php
+│   │   ├── VerificationTags.php
+│   │   └── CustomScripts.php
+│   │
+│   ├── Security/
+│   │   ├── RecaptchaSettings.php
+│   │   └── TwoFactorSettings.php
+│   │
+│   ├── Backups/
+│   │   ├── BackupManager.php
+│   │   └── BackupSchedules.php
+│   │
+│   └── System/
+│       ├── CacheManager.php
+│       ├── SystemInfo.php
+│       └── ErrorLogs.php
+│
+├── Widgets/
+│   ├── StatsOverview.php
+│   ├── LatestPages.php
+│   ├── LatestPosts.php
+│   ├── LatestComments.php
+│   ├── FormSubmissionsChart.php
+│   ├── PopularContent.php
+│   ├── StorageUsage.php
+│   ├── RecentActivity.php
+│   └── SeoHealthCheck.php
+│
+├── Livewire/
+│   ├── PageBuilder/
+│   │   ├── SectionsPalette.php          # Sol panel - section kartları
+│   │   ├── PageStructure.php            # Sağ panel - sayfa yapısı
+│   │   └── SectionEditor.php            # Modal - section düzenleme
+│   │
+│   ├── MediaPicker.php
+│   ├── MenuBuilder.php
+│   └── SeoAnalyzer.php
+│
+└── Components/
+    ├── TranslatableInput.php            # Multi-language input
+    ├── MediaPickerField.php
+    ├── IconPicker.php
+    ├── ColorPicker.php
+    ├── RepeaterField.php
+    ├── CodeEditor.php
+    └── SeoPreview.php
+
+4. Kurulum Adımları
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         KURULUM ADIMLARI                                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+ADIM 1: Laravel Projesi Oluşturma
+═══════════════════════════════════════════════════════════════════════════════
+
+$ composer create-project laravel/laravel cms-project
+$ cd cms-project
+
+ADIM 2: Temel Paketlerin Kurulumu
+═══════════════════════════════════════════════════════════════════════════════
+
+# Filament Admin Panel
+$ composer require filament/filament:"^3.2"
+$ php artisan filament:install --panels
+
+# Spatie Paketleri
+$ composer require spatie/laravel-permission          # Rol & İzin
+$ composer require spatie/laravel-activitylog        # Activity Log
+$ composer require spatie/laravel-backup             # Backup
+$ composer require spatie/laravel-medialibrary       # Media (opsiyonel)
+$ composer require spatie/laravel-translatable       # JSON Translations
+$ composer require spatie/laravel-sluggable          # Auto Slug
+$ composer require spatie/laravel-sitemap            # Sitemap
+
+# Image Processing
+$ composer require intervention/image-laravel        # Image manipulation
+
+# SEO
+$ composer require artesaos/seotools                 # SEO Tools (opsiyonel)
+
+# Form & Validation
+$ composer require biscolab/laravel-recaptcha        # reCAPTCHA
+
+# Utilities
+$ composer require league/flysystem-aws-s3-v3        # S3 Storage
+$ composer require league/flysystem-ftp              # FTP Storage (opsiyonel)
+
+# Development
+$ composer require --dev laravel/telescope           # Debugging
+$ composer require --dev barryvdh/laravel-debugbar   # Debug Bar
+$ composer require --dev laravel/pint                # Code Style
+
+ADIM 3: Paket Konfigürasyonları
+═══════════════════════════════════════════════════════════════════════════════
+
+# Publish configs
+$ php artisan vendor:publish --provider="Spatie\Permission\PermissionServiceProvider"
+$ php artisan vendor:publish --provider="Spatie\Activitylog\ActivitylogServiceProvider"
+$ php artisan vendor:publish --provider="Spatie\Backup\BackupServiceProvider"
+$ php artisan vendor:publish --provider="Intervention\Image\Laravel\ServiceProvider"
+
+ADIM 4: Environment Ayarları (.env)
+═══════════════════════════════════════════════════════════════════════════════
+
+APP_NAME="CMS"
+APP_URL=http://cms.test
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=cms_db
+DB_USERNAME=root
+DB_PASSWORD=
+
+CACHE_DRIVER=redis
+SESSION_DRIVER=redis
+QUEUE_CONNECTION=redis
+
+REDIS_HOST=127.0.0.1
+REDIS_PASSWORD=null
+REDIS_PORT=6379
+
+# Storage
+FILESYSTEM_DISK=local
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+AWS_DEFAULT_REGION=
+AWS_BUCKET=
+
+# reCAPTCHA
+RECAPTCHA_SITE_KEY=
+RECAPTCHA_SECRET_KEY=
+
+# Mail
+MAIL_MAILER=smtp
+MAIL_HOST=
+MAIL_PORT=587
+MAIL_USERNAME=
+MAIL_PASSWORD=
+MAIL_ENCRYPTION=tls
+
+ADIM 5: Veritabanı Migrations
+═══════════════════════════════════════════════════════════════════════════════
+
+$ php artisan migrate
+
+ADIM 6: Seeders
+═══════════════════════════════════════════════════════════════════════════════
+
+$ php artisan db:seed --class=LanguageSeeder
+$ php artisan db:seed --class=SettingsSeeder
+$ php artisan db:seed --class=SectionTemplateSeeder
+$ php artisan db:seed --class=RolePermissionSeeder
+$ php artisan db:seed --class=AdminUserSeeder
+
+ADIM 7: Filament Kullanıcı Oluşturma
+═══════════════════════════════════════════════════════════════════════════════
+
+$ php artisan make:filament-user
+
+ADIM 8: Storage Link
+═══════════════════════════════════════════════════════════════════════════════
+
+$ php artisan storage:link
+
+ADIM 9: Cache & Optimize
+═══════════════════════════════════════════════════════════════════════════════
+
+$ php artisan config:cache
+$ php artisan route:cache
+$ php artisan view:cache
+$ php artisan icons:cache
+$ php artisan filament:cache-components
